@@ -1,0 +1,252 @@
+
+=pod
+
+=encoding utf8
+
+=head2 OVERVIEW
+
+Convert Tiller CSV exports to QIF for import into Financial software like GnuCash, KMyMoney, Quicken, HomeBank, Money Manager Ex and many others.
+
+=head1 SYNOPSIS
+
+  # Command-line
+  tiller2qif run --input export.csv --db tiller.sqlite3 \
+                 --output import.qif [--mapfile mapping.txt]
+
+  # Programmatic
+  use Finance::Tiller2QIF;
+
+  Finance::Tiller2QIF::ingest( input => 'export.csv', db => 'tiller.sqlite3' );
+  Finance::Tiller2QIF::apply_map( db => 'tiller.sqlite3', mapfile => 'mapping.txt' );
+  Finance::Tiller2QIF::emit( db => 'tiller.sqlite3', output => 'import.qif' );
+
+=head1 INSTALLATION
+
+=head2 From CPAN
+
+  cpan Finance::Tiller2QIF
+  # or
+  cpanm Finance::Tiller2QIF
+
+=head2 Perl Dependencies
+
+The following Perl modules are required:
+
+=over 4
+
+=item * Path::Tiny
+
+=item * Text::CSV
+
+=item * Mojo::SQLite
+
+=item * DateTime::Format::Flexible
+
+=item * Cpanel::JSON::XS
+
+=item * Getopt::Long::Descriptive
+
+=back
+
+=head3 On Debian/Ubuntu:
+
+All of Tiller2QIF’s dependencies are available through package management if you need to install to system Perl.
+
+  sudo apt install libpath-tiny-perl libtext-csv-perl \
+    libmojo-sqlite-perl libcpanel-json-xs-perl libdatetime-format-flexible-perl
+  sudo cpan install Finance::Tiller2QIF
+
+=head1 DESCRIPTION
+
+Tiller Money (tillerapp.com) aggregates bank and credit-card transactions
+into a Google Sheet and lets you export a CSV. This module ingests that CSV
+into a SQLite database, optionally applies a category-mapping file to
+translate Tiller's auto-assigned categories to match your accounts/categories, then emits a QIF file ready for import.
+
+The three phases can be run individually or together:
+
+=over 4
+
+=item B<ingest> — parse the CSV and load rows into the SQLite database.
+
+=item B<map> — apply a user-supplied mapping file that rewrites categories,
+suppresses duplicates (card-payment credits), and assigns destination accounts.
+
+=item B<emit> — read unexported rows from the database and write a QIF file.
+
+=back
+
+=head1 CLI COMMANDS
+
+=over 4
+
+=item B<run> -- ingest, map, and emit in one step
+
+  tiller2qif run --input export.csv --db tiller.sqlite3 \
+                 --output import.qif [--mapfile mapping.txt]
+
+=item B<ingest> -- load CSV into the database
+
+  tiller2qif ingest --input export.csv --db tiller.sqlite3
+
+=item B<map> -- apply category mapping rules
+
+  tiller2qif map --db tiller.sqlite3 [--mapfile mapping.txt]
+
+=item B<emit> -- write QIF from the database
+
+  tiller2qif emit --db tiller.sqlite3 --output import.qif
+
+=item B<newdb> -- initialise a new SQLite database
+
+  tiller2qif newdb --db tiller.sqlite3
+
+=item B<newconfig> -- create a starter config file
+
+  tiller2qif newconfig [--config ~/.config/tiller2qif.conf]
+
+=back
+
+=head1 OPTIONS
+
+    "input":    "~/Downloads/mytillerdump.csv",
+    "output":   "/tmp/tillerout.qif",
+    "db":       "~/.data/tiller2qif.sqlite3",
+    "mapfile": "~/.config/tiller.mapping"
+  }
+
+Pass the config file with C<--config>.  Command-line options override config
+file values.
+
+=over 4
+
+=item B<--input> CSV export from Tiller.
+
+=item B<--output> QIF file to create.
+
+=item B<--db> SQLite database file used to store and transform transactions between phases.
+
+=item B<--mapfile> File containing category mapping rules.  Optional; omitting it passes
+transactions through with their original Tiller categories.
+
+=back
+
+=head1 MAPPING FILE
+
+The mapping file controls how Tiller categories are translated into destination
+account or category names and which transactions to suppress.  Each non-comment
+line has the form:
+
+  [AccountFilter] field | pattern | destination
+
+Lines beginning with C<#> and blank lines are ignored.  Rules are evaluated in
+order; the first matching rule wins and no further rules are checked for that
+transaction.
+
+=over 4
+
+=item B<AccountFilter> (optional) — a Perl regex in square brackets that
+restricts the rule to transactions on matching accounts.  Alternation works
+naturally: C<[Checking|Savings]>. Omit to match all accounts.
+
+=item B<field> — the transaction field to test: C<category>, C<payee>,
+C<memo>, C<date>, or C<amount>.
+
+=item B<pattern> — a Perl regex applied case-insensitively to the field value.
+
+For a simple pattern containing no C<|>, write it as-is:
+
+  payee | Starbucks | Expenses:Coffee
+
+To use regex alternation (matching either of several values), enclose the
+pattern in forward slashes:
+
+  payee | /Starbucks|Dunkin/ | Expenses:Coffee
+
+To match a literal pipe character in the data, escape it with a backslash:
+
+  payee | Cash\|App | Expenses:Transfers
+
+NULL field values (e.g. a transaction with no memo) skip the rule rather than
+matching an empty string.
+
+=item B<destination> — the target account or category name, or one of the
+special keywords:
+
+=over 4
+
+=item C<source> — keep the original Tiller category unchanged.
+
+=item C<blank> — emit no category field in the QIF output.
+
+=item C<skip> — exclude the transaction from QIF output entirely (useful for
+suppressing the credit-side of card payments that appear in both accounts).
+
+=back
+
+For double-entry programs such as GnuCash, destination is a full account name
+(e.g. C<Expenses:Groceries>).  For single-entry programs such as Quicken it is
+a category name.
+
+=back
+
+The optional C<default> line sets the fallback for transactions that match no
+rule.  It must appear as the last non-comment line:
+
+  default | source
+
+If the C<default> line is omitted, unmatched transactions behave as
+C<default | source>.
+
+=head2 EXAMPLES
+
+=over 4
+
+=item * Map by category
+
+  category | Groceries | Expenses:Groceries
+
+=item * Map by payee with alternation (slash-delimited pattern)
+
+  payee | /Starbucks|Dunkin/ | Expenses:Coffee
+
+=item * Map by payee, scoped to one account
+
+  [Checking] payee | Payroll | Income:Salary
+
+=item * Scope to multiple accounts using alternation in the account filter
+
+  [Checking|Savings] category | Transfer | skip
+
+=item * Skip card-payment credits on the card account
+
+  [CapitalOne] category | Transfer | skip
+
+=item * Match a literal pipe character in a payee name
+
+  payee | Cash\|App | Expenses:Transfers
+
+=item * Suppress category in QIF (no L field)
+
+  category | Miscellaneous | blank
+
+=item * Default: leave unmatched transactions with their Tiller category
+
+  default | source
+
+=back
+
+=head1 SEE ALSO
+
+L<Finance::Tiller2QIF::ReadCSV>, L<Finance::Tiller2QIF::Map>,
+L<Finance::Tiller2QIF::WriteQIF>, L<Finance::Tiller2QIF::Util>
+
+=head1 AUTHOR
+
+John Karr E<lt>brainbuz@cpan.orgE<gt>
+
+=head1 LICENSE
+
+GPL version 3 or later.
+
+=cut

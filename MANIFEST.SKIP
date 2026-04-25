@@ -1,8 +1,14 @@
+^pod2htmd\.tmp$
 ^\.git$
 ^\.gitignore$
 ^\.DS_Store$
 ^\.vscode$
 ^t1\.pl$
-^example\.conf\.json$
-^t/.*
+^example\.
 ^bin/cover\.sh$
+^cover_db/
+^private/
+^cspell\.json$
+^copilot-instructions\.md$
+^CLAUDE\.md$
+^dist\.ini$

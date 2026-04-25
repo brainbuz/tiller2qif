@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "brainbuz" ]
+  pull_request:
+    branches: ["main" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        perl: ['5.34', '5.36', '5.38', '5.40', '5.42']
+
+    name: Perl ${{ matrix.perl }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Perl ${{ matrix.perl }}
+        uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: ${{ matrix.perl }}
+
+      - name: Install App::cpm
+        run: cpanm --notest --quiet App::cpm
+
+      - name: Install dependencies
+        run: cpm install -g --show-build-log-on-failure --with-test
+
+      - name: Run tests
+        run: prove -l t
