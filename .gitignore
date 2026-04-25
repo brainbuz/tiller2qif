@@ -1,0 +1,4 @@
+example.*
+t/tmp/*
+.build
+cover_db/*

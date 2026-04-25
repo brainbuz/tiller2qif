@@ -1,0 +1,79 @@
+#!/usr/bin/env perl
+use v5.32;
+use strict;
+use warnings;
+use utf8;
+
+use feature qw/signatures postderef/;
+
+use Path::Tiny;
+# use Text::CSV;
+# use Mojo::SQLite;
+use Getopt::Long::Descriptive;
+use Cpanel::JSON::XS;
+use Finance::Tiller2QIF::ReadCSV;
+use Finance::Tiller2QIF::Util;
+use Finance::Tiller2QIF::WriteQIF;
+
+#PODNAME: tiller2qif
+
+=pod
+
+CSV, QIF, and SQLite databases are required.
+
+All command line options can be stored in a json config file:
+
+  {
+    "input": "~/Downloads/mytillerdump.csv",
+    "output": "/tmp/tillerout.qif",
+    "sqlite": "~/.data/tiller2qif.sqlite3"
+  }
+
+=cut
+
+my ($opt, $usage) = describe_options(
+  "tiller2qif %o <some-arg>",
+  [ 'config|c=s', "Read Optional Config File", ],
+  [ 'input|i=s',  "CSV File to Read",  ],
+  [ 'output|o=s', "QIF File to Write", ],
+  [ 'db|d=s', "SQLite Database for tracking which entries are already exported", ],
+  [ 'newdb=s', "File name for creating a new SQLite Database"],
+  [ 'newconfig', "File name for creating a new config file"],
+  [],
+  [ 'verbose|v',  "print extra stuff"            ],
+  [ 'help',       "print usage message and exit", { shortcircuit => 1 } ],
+);
+
+
+if ( $opt->newdb ) {
+  Finance::Tiller2QIF::Util::InitDB( $opt->newdb );
+  exit 0;
+}
+
+if ( $opt->newconfig ) {
+  Finance::Tiller2QIF::Util::InitConfig( $opt );
+}
+
+my %options = ();
+if ( $opt->config ) {
+  my $json_text = path( $opt->config )->slurp_utf8;
+  my $json = Cpanel::JSON::XS->new->relaxed;
+  my $config = $json->decode($json_text);
+  %options = %$config;
+}
+for my $key (qw( input output db verbose )) {
+    my $val = $opt->$key();
+    $options{$key} = $val if defined $val;
+}
+
+my @missing = grep { !$options{$_} } qw( input output db );
+if (@missing) {
+  warn "Missing required option(s): " . join( ', ', @missing ) . "\n";
+  print $usage->text;
+  exit 1;
+}
+
+Finance::Tiller2QIF::ReadCSV::Ingest( $options{input}, $options{db});
+Finance::Tiller2QIF::WriteQIF::Emit( $options{db}, $options{output});
+
+  # print "@Finance::Tiller2QIF::WriteQIF::qif";

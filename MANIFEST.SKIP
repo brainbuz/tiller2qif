@@ -1,0 +1,8 @@
+^\.git$
+^\.gitignore$
+^\.DS_Store$
+^\.vscode$
+^t1\.pl$
+^example\.conf\.json$
+^t/.*
+^bin/cover\.sh$
