@@ -1,0 +1,11 @@
+Revision history for Finance-Tiller2QIF
+
+1.01      2026-04-28
+  - Fix failed installs on cpantests
+  - Suppress warnings from exception tests
+1.00      2026-04-26
+  - Initial release
+  - Convert Tiller CSV exports to QIF format
+  - Support for mapping rules with pattern matching
+  - Account-based filtering
+  - Proper UTF-8 encoding throughout

@@ -2,3 +2,11 @@ example.*
 t/tmp/*
 .build
 cover_db/*
+private/*
+copilot-instructions.md
+CLAUDE.md
+cspell.json
+.perlcritic.rc
+*.gz
+Finance-Tiller2QIF*
+*.tmp
