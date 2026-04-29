@@ -17,39 +17,6 @@ SYNOPSIS
       Finance::Tiller2QIF::apply_map( db => 'tiller.sqlite3', mapfile => 'mapping.txt' );
       Finance::Tiller2QIF::emit( db => 'tiller.sqlite3', output => 'import.qif' );
 
-INSTALLATION
-
- From CPAN
-
-      cpan Finance::Tiller2QIF
-      # or
-      cpanm Finance::Tiller2QIF
-
- Perl Dependencies
-
-    The following Perl modules are required:
-
-      * Path::Tiny
-
-      * Text::CSV
-
-      * Mojo::SQLite
-
-      * DateTime::Format::Flexible
-
-      * Cpanel::JSON::XS
-
-      * Getopt::Long::Descriptive
-
-  On Debian/Ubuntu:
-
-    All of Tiller2QIF’s dependencies are available through package
-    management if you need to install to system Perl.
-
-      sudo apt install libpath-tiny-perl libtext-csv-perl \
-        libmojo-sqlite-perl libcpanel-json-xs-perl libdatetime-format-flexible-perl
-      sudo cpan install Finance::Tiller2QIF
-
 DESCRIPTION
 
     Tiller Money (tillerapp.com) aggregates bank and credit-card
@@ -68,12 +35,39 @@ DESCRIPTION
 
     emit — read unexported rows from the database and write a QIF file.
 
+INSTALLATION
+
+ From CPAN
+
+      cpan Finance::Tiller2QIF
+      # or
+      cpanm Finance::Tiller2QIF
+
+ Perl Dependencies
+
+    Runtime: Cpanel::JSON::XS, DateTime::Format::Flexible,
+    Getopt::Long::Descriptive, Path::Tiny, Mojo::SQLite, Text::CSV
+
+    Testing: Capture::Tiny, Test2::V0, Test2::Bundle::More,
+    Test2::Tools::Exception
+
+  On Debian/Ubuntu:
+
+    All of Tiller2QIF’s dependencies are available through package
+    management if you need to install to system Perl.
+
+      sudo apt install libpath-tiny-perl libtext-csv-perl libtest2-suite-perl libcapture-tiny-perl \
+        libmojo-sqlite-perl libcpanel-json-xs-perl libdatetime-format-flexible-perl
+      sudo cpan install Finance::Tiller2QIF
+
 CLI COMMANDS
 
     run -- ingest, map, and emit in one step
 
         tiller2qif run --input export.csv --db tiller.sqlite3 \
                        --output import.qif [--mapfile mapping.txt]
+      
+        run will always create a checkpoint even when the flag is not set.
 
     ingest -- load CSV into the database
 
@@ -94,6 +88,22 @@ CLI COMMANDS
     newconfig -- create a starter config file
 
         tiller2qif newconfig [--config ~/.config/tiller2qif.conf]
+
+    checkconfig -- check the merged values of cli arguments and config file
+
+        # The verbose flag will run checkconfig before beginning any operations.
+        tiller2qif checkconfig [--config ~/.config/tiller2qif.conf]
+
+    clean -- remove checkpoint copies of the database
+
+      Deletes all timestamped checkpoint files created by --checkpoint or
+      run, leaving the live database intact.
+
+        tiller2qif clean --db tiller.sqlite3
+
+    version -- print the installed version number
+
+        tiller2qif version
 
 OPTIONS
 
@@ -149,25 +159,17 @@ MAPPING FILE
       To match a literal pipe character in the data, escape it with a
       backslash:
 
-        payee | Cash\|App | Expenses:Transfers
+    source — keep the original Tiller category unchanged.
 
-      NULL field values (e.g. a transaction with no memo) skip the rule
-      rather than matching an empty string.
+    blank — emit no category field in the QIF output.
 
-    destination — the target account or category name, or one of the
-    special keywords:
+    skip — exclude the transaction from QIF output entirely (useful for
+    suppressing the credit-side of card payments that appear in both
+    accounts).
 
-      source — keep the original Tiller category unchanged.
-
-      blank — emit no category field in the QIF output.
-
-      skip — exclude the transaction from QIF output entirely (useful for
-      suppressing the credit-side of card payments that appear in both
-      accounts).
-
-      For double-entry programs such as GnuCash, destination is a full
-      account name (e.g. Expenses:Groceries). For single-entry programs
-      such as Quicken it is a category name.
+    For double-entry programs such as GnuCash, destination is a full
+    account name (e.g. Expenses:Groceries). For single-entry programs such
+    as Quicken it is a category name.
 
     The optional default line sets the fallback for transactions that match
     no rule. It must appear as the last non-comment line:
@@ -211,10 +213,16 @@ MAPPING FILE
 
         default | source
 
-SEE ALSO
+Advanced Use
 
-    Finance::Tiller2QIF::ReadCSV, Finance::Tiller2QIF::Map,
-    Finance::Tiller2QIF::WriteQIF, Finance::Tiller2QIF::Util
+    If you execute the individual steps instead of run all, you can write
+    SQL scripts or use an interactive sqlite3 client to make changes
+    between steps.
+
+    While other CSV export sources are not directly supported, you can
+    write a script to remap the fields for ingestion or just import into
+    the table, and then use the map and emit stages to complete your
+    export.
 
 AUTHOR
 

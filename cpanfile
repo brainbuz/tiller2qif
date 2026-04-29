@@ -9,4 +9,7 @@ requires 'Getopt::Long::Descriptive';
 
 on 'test' => sub {
   requires 'Test2::V0';
+  requires 'Test2::Bundle::More';
+  requires 'Test2::Tools::Exception';
+  requires 'Capture::Tiny';
 };

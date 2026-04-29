@@ -206,6 +206,90 @@ subtest cli_newconfig_verbose => sub {
   like( $out, qr/Creating config/, 'verbose newconfig output mentions creating' );
 };
 
+subtest cli_checkconfig => sub {
+  my $dbfile  = uniqfile( 'cli_chkcfg', 'sqlite3' );
+  my $csvfile = uniqfile( 'cli_chkcfg', 'csv' );
+  my $qiffile = uniqfile( 'cli_chkcfg', 'qif' );
+  freshdb($dbfile)->disconnect;
+  freshcsv( $csvfile, '04/25/2026,1,Checking,10.00,Test,Test,Food' );
+
+  # checkconfig command reaches line 162 via $cmd =~ /^checkconfig/
+  local @ARGV = (
+    'checkconfig',
+    '--db',     $dbfile,
+    '--input',  $csvfile,
+    '--output', $qiffile,
+  );
+  my $out = '';
+  ok( lives { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
+    'checkconfig returns normally' );
+  like( $out, qr/db\s*:/, 'checkconfig output lists db option' );
+};
+
+subtest cli_emit_verbose_checkconfig => sub {
+  my $dbfile  = uniqfile( 'cli_emitv', 'sqlite3' );
+  my $csvfile = uniqfile( 'cli_emitv', 'csv' );
+  my $qiffile = uniqfile( 'cli_emitv', 'qif' );
+  freshdb($dbfile)->disconnect;
+  freshcsv( $csvfile, '04/25/2026,1,Checking,20.00,Test,Test,Food' );
+  Finance::Tiller2QIF::ingest( input => $csvfile, db => $dbfile );
+
+  # --verbose on emit reaches line 162 via $opt->verbose (non-run command)
+  local @ARGV = ( 'emit', '--db', $dbfile, '--output', $qiffile, '--verbose' );
+  my $out = '';
+  ok( lives { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
+    'emit --verbose returns normally' );
+  like( $out, qr/db\s*:/, 'emit --verbose output lists db option via CheckConfig' );
+};
+
+subtest cli_run_checkpoints => sub {
+  my $dbfile  = uniqfile( 'cli_ckpt_run', 'sqlite3' );
+  my $csvfile = uniqfile( 'cli_ckpt_run', 'csv' );
+  my $qiffile = uniqfile( 'cli_ckpt_run', 'qif' );
+  freshdb($dbfile)->disconnect;
+  freshcsv( $csvfile, '04/25/2026,1,Checking,10.00,Test,Test,Food' );
+  local @ARGV = ( 'run', '--input', $csvfile, '--db', $dbfile, '--output', $qiffile );
+  ok( lives { Finance::Tiller2QIF::run_cli() }, 'run returns normally' );
+  my @copies = glob( $dbfile . '*' );
+  ok( @copies > 1, 'run created a checkpoint copy of the database' );
+};
+
+subtest cli_checkpoint_flag => sub {
+  my $dbfile  = uniqfile( 'cli_ckpt_flag', 'sqlite3' );
+  my $csvfile = uniqfile( 'cli_ckpt_flag', 'csv' );
+  freshdb($dbfile)->disconnect;
+  freshcsv( $csvfile, '04/25/2026,1,Checking,10.00,Test,Test,Food' );
+  local @ARGV = ( 'ingest', '--input', $csvfile, '--db', $dbfile, '--checkpoint' );
+  ok( lives { Finance::Tiller2QIF::run_cli() }, 'ingest --checkpoint returns normally' );
+  my @copies = glob( $dbfile . '*' );
+  ok( @copies > 1, '--checkpoint created a checkpoint copy of the database' );
+};
+
+subtest cli_clean_missing_db => sub {
+  local @ARGV = ('clean');
+  ok( dies { Finance::Tiller2QIF::run_cli() }, 'clean without --db dies' );
+};
+
+subtest cli_clean => sub {
+  my $dbfile = uniqfile( 'cli_clean', 'sqlite3' );
+  freshdb($dbfile)->disconnect;
+
+  # Create two checkpoint copies directly, with distinct names
+  Finance::Tiller2QIF::_checkpoint( $dbfile );
+  sleep 1;
+  Finance::Tiller2QIF::_checkpoint( $dbfile );
+
+  my @before = grep { $_ ne $dbfile } glob( $dbfile . '*' );
+  ok( @before == 2, 'two checkpoint copies exist before clean' );
+
+  local @ARGV = ( 'clean', '--db', $dbfile );
+  ok( lives { Finance::Tiller2QIF::run_cli() }, 'clean returns normally' );
+
+  my @after = grep { $_ ne $dbfile } glob( $dbfile . '*' );
+  ok( @after == 0, 'clean removed all checkpoint copies' );
+  ok( -e $dbfile,  'clean left the original database intact' );
+};
+
 done_testing();
 
 unlink glob "t/tmp/t2q_*" if test_pass();

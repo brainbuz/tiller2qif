@@ -5,13 +5,15 @@ use warnings FATAL => 'utf8';
 use open ':std', ':encoding(UTF-8)';
 use Test2::V0;
 use Test2::Bundle::More;
-use Test2::Tools::Warnings  qw/warns warning warnings no_warnings/;
+# use Test2::Tools::Warnings  qw/warns warning warnings no_warnings/;
 use Test2::Tools::Exception qw/dies lives/;
 use Path::Tiny;
 use Finance::Tiller2QIF::ReadCSV;
 use Finance::Tiller2QIF::WriteQIF;
 use Finance::Tiller2QIF::Util;
 use Mojo::SQLite;
+use Capture::Tiny qw( capture_stdout );
+use DBI;
 use feature qw/signatures postderef/;
 
 require './t/TestHelper.pm';
@@ -19,7 +21,6 @@ require './t/TestHelper.pm';
 # use Data::Printer;
 
 subtest malformed_date => sub {
-  local $SIG{__WARN__} = sub {};
   my $dbfile  = uniqfile( 'malformed_date', 'sqlite3' );
   my $csvfile = uniqfile( 'malformed_date', 'csv' );
   my $db      = freshdb($dbfile);
@@ -27,11 +28,8 @@ subtest malformed_date => sub {
 
   my $count = Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
   is($count, 0, 'No records added');
-  like(
-    warning { Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile ) },
-    qr/Could not parse date/,
-    "Got expected warning"
-  );
+  my $out = capture_stdout { Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile ) };
+  like( $out, qr/Could not parse date/, 'bad date prints expected message' );
   my $results = $db->select( 'transactions', ['id'], { id => 1 } )->arrays;
   is( scalar(@$results), 0, 'skipped record not in database' );
   $db->disconnect;
@@ -208,6 +206,42 @@ subtest empty_file => sub {
   path($csvfile)->spew("");
   ok( dies { Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile ) },
     'Empty file dies as expected' );
+};
+
+subtest bad_insert => sub {
+  my $dbfile = uniqfile( 'bad_insert', 'sqlite3' );
+  my $db     = freshdb($dbfile);
+  $db->disconnect;
+
+  my $dbh = DBI->connect(
+    "dbi:SQLite:dbname=$dbfile", "", "",
+    { RaiseError => 1, AutoCommit => 1, sqlite_unicode => 1 }
+  );
+  my $insert = Finance::Tiller2QIF::ReadCSV::_prepare_insert($dbh);
+  $dbh->do('DROP TABLE transactions');
+
+  my @columns = ( 'Date', 'Transaction ID', 'Account', 'Amount', 'Description', 'Full Description', 'Category' );
+  my $row     = [ '04/25/2026', '99', 'Checking', '10.00', 'Test', 'Test', 'Food' ];
+
+  my $out = capture_stdout {
+    Finance::Tiller2QIF::ReadCSV::_insert_row( $insert, \@columns, $row, 0 );
+  };
+  like( $out, qr/Failed to import row/, 'catch block reports failed insert' );
+  $dbh->disconnect;
+};
+
+subtest wrong_sheet => sub {
+  my $dbfile = uniqfile( 'wrong_sheet', 'sqlite3' );
+  freshdb($dbfile);
+  my $err = dies { Finance::Tiller2QIF::ReadCSV::Ingest( 't/testcase/wrong_sheet.csv', $dbfile ) };
+  like( $err, qr/missing required column/, 'wrong sheet CSV dies with missing column error' );
+};
+
+subtest missing_header => sub {
+  my $dbfile = uniqfile( 'missing_header', 'sqlite3' );
+  freshdb($dbfile);
+  my $err = dies { Finance::Tiller2QIF::ReadCSV::Ingest( 't/testcase/missing_header.csv', $dbfile ) };
+  like( $err, qr/missing required column.*Transaction ID/, 'CSV missing Transaction ID column dies with clear error' );
 };
 
 done_testing();
