@@ -56,7 +56,7 @@ sub run (%options) {
 }
 
 sub _checkpoint($file) {
-  my $new = $file . localtime()->datetime();
+  my $new = "$file." . localtime()->datetime();
   $new =~ tr/\:/_/;
   path($file)->copy($new);
 }
