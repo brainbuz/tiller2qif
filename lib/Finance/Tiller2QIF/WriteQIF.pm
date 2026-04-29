@@ -1,8 +1,6 @@
 package Finance::Tiller2QIF::WriteQIF;
 # ABSTRACT: Write transactions to QIF format
 
-
-
 =head1 DESCRIPTION
 
 Exports transactions from the SQLite database to QIF (Quicken Interchange Format) for import into financial software. Transactions are grouped by account and sorted by date. Skipped transactions and those without effective categories are handled appropriately.
@@ -51,7 +49,7 @@ sub _init($db_path) {
     ->arrays->@*;
 }
 
-sub Emit ( $db_path, $outfile ) {
+sub Emit ( $db_path, $outfile, $verbose=0 ) {
   _init($db_path);
   for my $account (@accounts) {
     my $header = join( "\n", "!Account", "N$account", "^", "!Type:Bank" );

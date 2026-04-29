@@ -31,6 +31,9 @@ GPL version 3 or later.
 
 use v5.34;
 
+use Exporter 'import';
+our @EXPORT_OK = qw( vPrint );
+
 use Path::Tiny;
 use Text::CSV;
 use Mojo::SQLite;
@@ -55,11 +58,11 @@ CREATE TABLE IF NOT EXISTS transactions (
 );
 /;
 
-sub InitDB ( $sqlite ) {
-    my $db = Mojo::SQLite->new($sqlite)->options({ sqlite_unicode => 1 });
-    # uncoverable branch true
-    $db->db->query($newDB) || die "unable to initialize database $!\n";
-    say "Database $sqlite created";
+sub InitDB ($sqlite) {
+  my $db = Mojo::SQLite->new($sqlite)->options( { sqlite_unicode => 1 } );
+  # uncoverable branch true
+  $db->db->query($newDB) || die "unable to initialize database $!\n";
+  say "Database $sqlite created";
 }
 
 my $example = q|
@@ -75,11 +78,56 @@ my $example = q|
 }
 |;
 
-sub InitConfig ( $config ) {
+sub InitConfig ($config) {
   # devel coverage errors
   # uncoverable branch true
   # uncoverable branch false
-  path( $config )->spew_utf8( $example ) || die "unable to create $config : $! \n";
+  path($config)->spew_utf8($example)
+    || die "unable to create $config : $! \n";
+}
+
+sub vPrint ( $verbose, @messages ) {
+  if ($verbose) {
+    for (@messages) { say }
+  }
+}
+
+sub CheckConfig (%options) {
+
+  say "Options Provided:";
+  for ( sort keys %options ) {
+
+    say sprintf "  %-8s : %s", $_, $options{$_};
+  }
+
+  say '';
+  if ( defined $options{db} ) {
+    unless ( -r $options{db} ) {
+      say "Problem: db '${options{db}}' does not exist or can't be read.";
+    }
+  }
+  if ( defined $options{input} ) {
+    unless ( -r $options{input} ) {
+      say
+        "Problem: input '${options{input}}' does not exist or can't be read.";
+    }
+  }
+  if ( defined $options{mapfile} ) {
+    unless ( -r $options{mapfile} ) {
+      say
+"Problem: mapfile '${options{mapfile}}' does not exist or can't be read.";
+    }
+  }
+  if ( defined $options{output} ) {
+    if ( -r $options{output} ) {
+      say "Alert ${options{output}} already exists and would be overwritten";
+      say "Problem ${options{output}} is not writable"
+        unless ( -w $options{output} );
+    }
+    unless ( -w path( $options{output} )->parent ) {
+      say "Problem ${options{output}} parent directory is not writable";
+    }
+  }
 }
 
 1;

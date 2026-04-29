@@ -1,5 +1,8 @@
 Revision history for Finance-Tiller2QIF
 
+1.02      2026-04-29
+  - Add configcheck and more messages when verbose is enabled.
+  - Detect and fatalize bad/corrupt csv files.
 1.01      2026-04-28
   - Fix failed installs on cpantests
   - Suppress warnings from exception tests

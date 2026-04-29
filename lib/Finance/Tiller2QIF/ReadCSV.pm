@@ -32,6 +32,7 @@ use utf8;
 use warnings FATAL => 'utf8';
 use feature qw/signatures postderef/;
 use DateTime::Format::Flexible;
+use Finance::Tiller2QIF::Util qw( vPrint );
 
 # Enable experimental try/catch for Perl 5.32, suppressing warnings
 no warnings 'experimental::try';
@@ -71,7 +72,7 @@ sub _normalize_amount ($raw) {
   return $amount;
 }
 
-sub _prepare_upsert ($dbh) {
+sub _prepare_insert ($dbh) {
   $dbh->prepare(
     q{
     INSERT OR IGNORE INTO transactions (id, account, date, amount, payee, memo, category, check_number)
@@ -80,18 +81,66 @@ sub _prepare_upsert ($dbh) {
   );
 }
 
+my @REQUIRED_HEADERS = ( 'Date', 'Transaction ID', 'Account', 'Amount', 'Description' );
+
+sub _validate_csv ( $csv_file, $csv, $fh, $header ) {
+  my %found = map { $_ => 1 } @$header;
+  my @missing = grep { !$found{$_} } @REQUIRED_HEADERS;
+  if (@missing) {
+    die "CSV validation failed for $csv_file: missing required column(s): "
+      . join( ', ', @missing ) . "\n";
+  }
+  if ( $csv->error_diag() ) {
+    die "CSV parse error in $csv_file: " . $csv->error_diag() . "\n";
+  }
+}
+
 sub _prepare_count ($dbh) {
   $dbh->prepare(
     q{ SELECT COUNT (*) FROM transactions;  }
   );
 }
 
-sub Ingest ( $csv_file, $db_path ) {
+sub _insert_row ( $insert, $columns, $row, $verbose ) {
+  my %r;
+  @r{@$columns} = @$row;
+  my $amount = _normalize_amount( $r{'Amount'} // '' );
+  my $date   = $r{'Date'} // '';
+  my $rowstr = join( ", ", map { $_ // '' } @r{@$columns} );
+  my $dt;
+  try {
+    $dt   = DateTime::Format::Flexible->parse_datetime($date);
+    $date = $dt->ymd;
+  }
+  catch ($e) {
+    print "[WARN] Could not parse date '$date' for record: $rowstr\n";
+    return;
+  }
+  my $id        = $r{'Transaction ID'}   || return;
+  my $account   = $r{'Account'}          || '';
+  my $payee     = $r{'Description'}      || $r{'Full Description'} // '';
+  my $memo      = $r{'Full Description'} || '';
+  my $cat       = $r{'Category'}         || '';
+  my $check_num = $r{'Check Number'}     // '';
+  $check_num = undef if !length($check_num) || $check_num eq '0';
+  try {
+    # if the insert fails catch will report the issue.
+    local $SIG{__WARN__} = sub {};
+    $insert->execute( $id, $account, $date, $amount, $payee, $memo, $cat, $check_num );
+    vPrint( $verbose, "Ingest: $rowstr" );
+  }
+  catch ($e) {
+    say "Failed to import row to transactions ${rowstr} \n$e  ";
+  }
+}
+
+sub Ingest ( $csv_file, $db_path, $verbose=0 ) {
   my $dbh = DBI->connect(
     "dbi:SQLite:dbname=$db_path",
     "", "",
     {
       RaiseError      => 1,
+      PrintError      => 0,
       AutoCommit      => 1,
       sqlite_unicode  => 1,
     }
@@ -100,35 +149,15 @@ sub Ingest ( $csv_file, $db_path ) {
   my $fh  = path($csv_file)->openr_utf8 or die "File not found: $csv_file\n";
   my $header = $csv->getline($fh)
     or die "CSV appears empty or unreadable\n";
-  my @columns = @$header;
+  _validate_csv( $csv_file, $csv, $fh, $header );
 
-  my $upsert = _prepare_upsert($dbh);
+  my $insert = _prepare_insert($dbh);
   my $counter = _prepare_count($dbh);
   $counter->execute();
   my ($StartCnt) = $counter->fetchrow_array;
 
   while ( my $row = $csv->getline($fh) ) {
-    my %r;
-    @r{@columns} = @$row;
-    my $amount = _normalize_amount( $r{'Amount'} // '' );
-    # Normalize date using DateTime::Format::Flexible
-    my $date = $r{'Date'} // '';
-    my $dt;
-    try {
-      $dt = DateTime::Format::Flexible->parse_datetime($date);
-      $date = $dt->ymd;
-    } catch ($e) {
-      warn "[WARN] Could not parse date '$date' for record: " . join(", ", map { $_ // '' } @r{@columns}) . "\n";
-      next;
-    }
-    my $id       = $r{'Transaction ID'}   || next;
-    my $account  = $r{'Account'}          || '';
-    my $payee    = $r{'Description'}      || $r{'Full Description'} // '';
-    my $memo     = $r{'Full Description'} || '';
-    my $cat      = $r{'Category'}         || '';
-    my $check_num = $r{'Check Number'} // '';
-    $check_num = undef if !length($check_num) || $check_num eq '0';
-    $upsert->execute( $id, $account, $date, $amount, $payee, $memo, $cat, $check_num );
+    _insert_row( $insert, $header, $row, $verbose );
   }
   $counter->execute();
   my ($EndCnt) = $counter->fetchrow_array;

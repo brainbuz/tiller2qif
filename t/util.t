@@ -4,8 +4,9 @@ use warnings;
 use Test2::V0;
 use Test2::Bundle::More;
 use Mojo::SQLite;
-use Finance::Tiller2QIF::Util;
+use Finance::Tiller2QIF::Util qw( vPrint );
 use Path::Tiny;
+use Capture::Tiny qw( capture_stdout );
 # use Carp::Always;
 
 require './t/TestHelper.pm';
@@ -43,6 +44,71 @@ subtest 'bad db, bad conf' => sub {
   my $bad_config = '/8Glunwitajwek/foo/deeply/unreachable/fake.conf';
   ok( dies { Finance::Tiller2QIF::Util::InitConfig($bad_config) },
     'InitConfig dies on unwritable path' );
+};
+
+subtest 'CheckConfig output' => sub {
+    my $out = capture_stdout { Finance::Tiller2QIF::Util::CheckConfig( foo => 'bar' ) };
+    like( $out, qr/foo\s*:\s*bar/, 'CheckConfig prints provided options' );
+};
+
+subtest 'CheckConfig bad db' => sub {
+    my $out = capture_stdout {
+        Finance::Tiller2QIF::Util::CheckConfig( db => '/no/such/file.sqlite3' );
+    };
+    like( $out, qr/Problem.*db/, 'CheckConfig reports unreadable db' );
+};
+
+subtest 'CheckConfig bad input' => sub {
+    my $out = capture_stdout {
+        Finance::Tiller2QIF::Util::CheckConfig( input => '/no/such/file.csv' );
+    };
+    like( $out, qr/Problem.*input/, 'CheckConfig reports unreadable input' );
+};
+
+subtest 'CheckConfig bad mapfile' => sub {
+    my $out = capture_stdout {
+        Finance::Tiller2QIF::Util::CheckConfig( mapfile => '/no/such/file.map' );
+    };
+    like( $out, qr/Problem.*mapfile/, 'CheckConfig reports unreadable mapfile' );
+};
+
+subtest 'CheckConfig output file does not exist' => sub {
+    my $out = capture_stdout {
+        Finance::Tiller2QIF::Util::CheckConfig( output => "$tmpdir/newfile.qif" );
+    };
+    unlike( $out, qr/Alert/, 'no alert when output does not yet exist' );
+    unlike( $out, qr/Problem/, 'no problem when parent dir is writable' );
+};
+
+subtest 'CheckConfig output file already exists' => sub {
+    my $existing = "$tmpdir/existing.qif";
+    path($existing)->spew_utf8("data");
+    my $out = capture_stdout {
+        Finance::Tiller2QIF::Util::CheckConfig( output => $existing );
+    };
+    like( $out, qr/Alert/, 'alert when output already exists' );
+};
+
+subtest 'CheckConfig output parent dir not writable' => sub {
+    my $locked_dir = "$tmpdir/locked";
+    mkdir $locked_dir unless -d $locked_dir;
+    chmod 0555, $locked_dir;
+    my $out = capture_stdout {
+        Finance::Tiller2QIF::Util::CheckConfig( output => "$locked_dir/out.qif" );
+    };
+    like( $out, qr/Problem/, 'problem reported when parent dir not writable' );
+    chmod 0755, $locked_dir;
+};
+
+subtest 'vPrint verbose true' => sub {
+    my $out = capture_stdout { vPrint( 1, 'hello', 'world' ) };
+    like( $out, qr/hello/, 'vPrint prints first message when verbose' );
+    like( $out, qr/world/, 'vPrint prints second message when verbose' );
+};
+
+subtest 'vPrint verbose false' => sub {
+    my $out = capture_stdout { vPrint( 0, 'hello', 'world' ) };
+    is( $out, '', 'vPrint prints nothing when verbose is false' );
 };
 
 done_testing();
