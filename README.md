@@ -29,24 +29,28 @@ INSTALLATION
 
     The following Perl modules are required:
 
-      * Path::Tiny
-
-      * Text::CSV
-
-      * Mojo::SQLite
+      * Cpanel::JSON::XS
 
       * DateTime::Format::Flexible
 
-      * Cpanel::JSON::XS
+      * Getopt::Long::Descriptive
+
+      * Path::Tiny
+
+      * Mojo::SQLite
 
       * Getopt::Long::Descriptive
+
+      * Text::CSV
+
+      * Test2::Bundle::More
 
   On Debian/Ubuntu:
 
     All of Tiller2QIF’s dependencies are available through package
     management if you need to install to system Perl.
 
-      sudo apt install libpath-tiny-perl libtext-csv-perl \
+      sudo apt install libpath-tiny-perl libtext-csv-perl libtest2-suite-perl \
         libmojo-sqlite-perl libcpanel-json-xs-perl libdatetime-format-flexible-perl
       sudo cpan install Finance::Tiller2QIF
 

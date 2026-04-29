@@ -13,7 +13,6 @@ Ingests Tiller CSV exports into a SQLite database.
 
 Parse a Tiller CSV export and insert rows into the SQLite database. Handles multiple number formats (US, European, with currency symbols). Dates are normalized to YYYY-MM-DD format. Missing Transaction IDs cause the row to be skipped.
 
-
 =head1 AUTHOR
 
 John Karr E<lt>brainbuz@cpan.orgE<gt>
@@ -75,16 +74,8 @@ sub _normalize_amount ($raw) {
 sub _prepare_upsert ($dbh) {
   $dbh->prepare(
     q{
-    INSERT INTO transactions (id, account, date, amount, payee, memo, category, check_number)
+    INSERT OR IGNORE INTO transactions (id, account, date, amount, payee, memo, category, check_number)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET
-        account      = excluded.account,
-        date         = excluded.date,
-        amount       = excluded.amount,
-        payee        = excluded.payee,
-        memo         = excluded.memo,
-        category     = excluded.category,
-        check_number = excluded.check_number
     }
   );
 }
