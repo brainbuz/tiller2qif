@@ -1,4 +1,10 @@
- OVERVIEW
+NAME
+
+    tiller2qif
+
+    Finance::Tiller2QIF
+
+OVERVIEW
 
     Convert Tiller CSV exports to QIF for import into Financial software
     like GnuCash, KMyMoney, Quicken, HomeBank, Money Manager Ex and many

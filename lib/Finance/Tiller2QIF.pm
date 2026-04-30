@@ -20,14 +20,6 @@ use Finance::Tiller2QIF::WriteQIF;
 use Time::Piece;
 # use Data::Printer;
 
-=pod
-
-=head1 NAME
-
-Finance::Tiller2QIF
-
-=cut
-
 ## POD ##
 
 # ---------------------------------------------------------------------------
