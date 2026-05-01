@@ -6,14 +6,6 @@ use Finance::Tiller2QIF;
 # PODNAME: tiller2qif
 # ABSTRACT: Convert Tiller CSV exports to QIF format
 
-=pod
-
-=head1 NAME
-
-tiller2qif
-
-=cut
-
 ## POD ##
 
 Finance::Tiller2QIF::run_cli();

@@ -20,14 +20,6 @@ use Finance::Tiller2QIF::WriteQIF;
 use Time::Piece;
 # use Data::Printer;
 
-=pod
-
-=head1 NAME
-
-Finance::Tiller2QIF
-
-=cut
-
 ## POD ##
 
 # ---------------------------------------------------------------------------
@@ -135,13 +127,17 @@ sub run_cli {
 "Command Missing! Valid commands: $VALID_COMMANDS\nFor help: tiller2qif --help\n";
   }
 
-  die "Unknown command '$cmd'. Valid commands: $VALID_COMMANDS\n"
+  die qq{Unknown command '$cmd'.
+    Valid commands: $VALID_COMMANDS
+    for help tiller2qif --help or perldoc tiller2qif
+    \n}
     unless $cmd =~ /^(?:$VALID_COMMANDS)$/;
 
   if ( $cmd eq 'version' ) {
+    # dzil is in charge of the $VERSION variable which means it is undefined during development
     # uncoverable branch true
     # uncoverable branch false
-    my $v = do { no strict 'vars'; $VERSION ? $VERSION : 'unversioned' };
+    my $v = do { no strict 'vars'; $VERSION // 'unversioned' };
     say "Tiller2QIF VERSION: ${v}";
     exit 0;
   }
