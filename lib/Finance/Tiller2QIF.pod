@@ -241,7 +241,7 @@ C<default | source>.
 
 If you execute the individual steps instead of run all, you can write SQL scripts or use an interactive sqlite3 client to make changes between steps.
 
-While other CSV export sources are not directly supported, you can write a script to remap the fields for ingestion or just import into the table, and then use the map and emit stages to complete your export.
+While other CSV export sources are not directly supported, you can write a script to remap the fields for ingestion or just import into the table, and then use the map and emit stages to complete your export. If translating other CSV sources be aware that Tiller currently only provides it's data in the US 'MM/DD/YYYY' format, this program can also accept dates in ISO 8601 'YYYY-MM-DD'. Data is written into the SQLite database using the ISO 8601 format.
 
 =head1 AUTHOR
 

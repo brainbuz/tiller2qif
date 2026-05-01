@@ -244,5 +244,24 @@ subtest missing_header => sub {
   like( $err, qr/missing required column.*Transaction ID/, 'CSV missing Transaction ID column dies with clear error' );
 };
 
+# us date format is tiller's only format as of 2026-04,
+# tiller2qif also supports iso8601.
+subtest date_format_iso8601 => sub {
+  my $dbfile  = uniqfile( 'date_iso', 'sqlite3' );
+  my $csvfile = uniqfile( 'date_iso', 'csv' );
+  my $qiffile = uniqfile( 'date_iso', 'qif' );
+  my $db      = freshdb($dbfile);
+  freshcsv( $csvfile,
+    '2026-04-25,60,Checking,100.00,Deposit,Paycheck,Income',
+    '2026-03-15,61,Checking,50.00,Withdrawal,ATM,Expense',
+  );
+  is(Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile ), 2, 'ISO 8601 dates recorded');
+  Finance::Tiller2QIF::WriteQIF::Emit( $dbfile, $qiffile );
+  my $qif = path($qiffile)->slurp_utf8;
+  like( $qif, qr/D2026-04-25/, 'ISO 8601 date correctly normalized' );
+  like( $qif, qr/D2026-03-15/, 'Second ISO date correctly normalized' );
+  $db->disconnect;
+};
+
 done_testing();
 unlink glob "t/tmp/*" if test_pass();

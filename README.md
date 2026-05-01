@@ -4,7 +4,7 @@ NAME
 
     Finance::Tiller2QIF
 
-OVERVIEW
+DESCRIPTION
 
     Convert Tiller CSV exports to QIF for import into Financial software
     like GnuCash, KMyMoney, Quicken, HomeBank, Money Manager Ex and many
@@ -23,7 +23,7 @@ SYNOPSIS
       Finance::Tiller2QIF::apply_map( db => 'tiller.sqlite3', mapfile => 'mapping.txt' );
       Finance::Tiller2QIF::emit( db => 'tiller.sqlite3', output => 'import.qif' );
 
-DESCRIPTION
+OVERVIEW
 
     Tiller Money (tillerapp.com) aggregates bank and credit-card
     transactions into a Google Sheet and lets you export a CSV. This module
@@ -228,7 +228,10 @@ Advanced Use
     While other CSV export sources are not directly supported, you can
     write a script to remap the fields for ingestion or just import into
     the table, and then use the map and emit stages to complete your
-    export.
+    export. If translating other CSV sources be aware that Tiller currently
+    only provides it's data in the US 'MM/DD/YYYY' format, this program can
+    also accept dates in ISO 8601 'YYYY-MM-DD'. Data is written into the
+    SQLite database using the ISO 8601 format.
 
 AUTHOR
 
