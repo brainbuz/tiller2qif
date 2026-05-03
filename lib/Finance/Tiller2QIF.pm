@@ -27,17 +27,16 @@ use Time::Piece;
 # ---------------------------------------------------------------------------
 
 sub ingest (%options) {
-  Finance::Tiller2QIF::ReadCSV::Ingest( $options{input}, $options{db},
+  Finance::Tiller2QIF::ReadCSV::Ingest( $options{input}, $options{db_path},
     $options{verbose} );
 }
 
 sub apply_map (%options) {
-  Finance::Tiller2QIF::Map::Map( $options{db}, $options{mapfile},
-    $options{verbose} );
+  Finance::Tiller2QIF::Map::Map( \%options );
 }
 
 sub emit (%options) {
-  Finance::Tiller2QIF::WriteQIF::Emit( $options{db}, $options{output},
+  Finance::Tiller2QIF::WriteQIF::Emit( $options{db_path}, $options{output},
     $options{verbose} );
 }
 
@@ -162,24 +161,26 @@ sub run_cli {
     $options{$key} = $val if defined $val;
   }
 
+  $options{db_path} = delete $options{db} if exists $options{db};
+
   if ( $cmd eq 'newdb' ) {
-    die "newdb requires --db\n" unless $options{db};
-    say "Creating database: " . $options{db} if $opt->verbose;
-    Finance::Tiller2QIF::Util::InitDB( $options{db} );
-    say "Database initialized: " . $options{db};
+    die "newdb requires --db\n" unless $options{db_path};
+    say "Creating database: " . $options{db_path} if $opt->verbose;
+    Finance::Tiller2QIF::Util::InitDB( $options{db_path} );
+    say "Database initialized: " . $options{db_path};
     return;
   }
 
   if ( $cmd eq 'clean' ) {
-    die "clean requires --db\n" unless $options{db};
-    my $removed = _clean_checkpoints( $options{db} );
+    die "clean requires --db\n" unless $options{db_path};
+    my $removed = _clean_checkpoints( $options{db_path} );
     say "Removed $removed checkpoint(s)";
     return;
   }
 
   my @missing;
   push @missing, '--input'  if $cmd =~ /^(?:ingest|run)$/ && !$options{input};
-  push @missing, '--db'     if !$options{db};
+  push @missing, '--db'     if !$options{db_path};
   push @missing, '--output' if $cmd =~ /^(?:emit|run)$/ && !$options{output};
 
   if (@missing) {
@@ -192,7 +193,7 @@ sub run_cli {
   }
 
   if ( $opt->checkpoint || $cmd eq 'run' ) {
-    _checkpoint( $options{db} );
+    _checkpoint( $options{db_path} );
   }
 
   if ( $cmd =~ /^(?:ingest|run)$/ ) {

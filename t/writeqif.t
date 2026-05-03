@@ -146,7 +146,7 @@ subtest skipped_excluded => sub {
     '',
   ));
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my $updated = Finance::Tiller2QIF::WriteQIF::Emit( $dbfile, $qiffile );
   is ( $updated, 2, "2 rows changed");
 

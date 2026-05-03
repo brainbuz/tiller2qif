@@ -68,7 +68,7 @@ subtest pipe_variants => sub {
   );
 
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
 
   my %tx = map { $_->{id} => $_->{mapped_category} }
     $db->select( 'transactions', [qw(id mapped_category)] )->hashes->@*;
@@ -112,7 +112,7 @@ subtest account_filter_alternation => sub {
     'default | source',
   );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my %tx = map { $_->{id} => $_->{mapped_category} }
     $db->select( 'transactions', [qw(id mapped_category)] )->hashes->@*;
   is( $tx{1}, 'Expenses:Food', 'Checking matches alternation filter' );
@@ -142,7 +142,7 @@ subtest null_field_value => sub {
     'default | source',
   );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my %tx = map { $_->{id} => $_->{mapped_category} }
     $db->select( 'transactions', [qw(id mapped_category)] )->hashes->@*;
   is( $tx{1}, undef, 'Non-matching memo leaves mapped_category NULL' );
@@ -168,7 +168,7 @@ subtest omitted_account_filter => sub {
     'default | source',
   );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my %tx = map { $_->{id} => $_->{mapped_category} }
     $db->select( 'transactions', [qw(id mapped_category)] )->hashes->@*;
   is( $tx{1}, 'Expenses:Food', 'Omitted account filter matches Checking' );
@@ -194,7 +194,7 @@ subtest rule_order => sub {
     'default | source',
   );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my $tx = $db->select( 'transactions', ['mapped_category'], { id => 1 } )->hash;
   is( $tx->{mapped_category}, 'Expenses:First', 'First matching rule wins, second rule never evaluated' );
   $db->disconnect;
@@ -210,19 +210,19 @@ subtest mapping_file_errors => sub {
   freshdb($dbfile);
 
   freshmap( $mapfile, 'badfield | foo | bar' );
-  ok( dies { Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile ) },
+  ok( dies { Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile}) },
     'Unknown field name dies' );
 
   freshmap( $mapfile, 'category | [unclosed | dest' );
-  ok( dies { Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile ) },
+  ok( dies { Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile}) },
     'Invalid regex in pattern dies' );
 
   freshmap( $mapfile, '[Checking category | Food | Expenses:Food' );
-  ok( dies { Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile ) },
+  ok( dies { Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile}) },
     'Unclosed account filter bracket dies' );
 
   freshmap( $mapfile, 'payee | Alpha|Beta | Expenses:Dining' );
-  ok( dies { Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile ) },
+  ok( dies { Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile}) },
     'Bare alternation without slash-quoting dies' );
 };
 

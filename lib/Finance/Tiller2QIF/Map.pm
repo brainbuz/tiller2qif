@@ -33,28 +33,12 @@ use feature qw/signatures postderef/;
 
 my %VALID_FIELDS = map { $_ => 1 } qw(category payee memo account date amount);
 
-# 'source' -> undef (COALESCE falls back to original Tiller category)
-# 'blank'  -> ''    (COALESCE returns '', WriteQIF emits no L field)
-# 'skip'   -> handled before this call; never passed in
-# anything else -> that string
 sub _resolve_dest ($dest) {
   return undef if $dest eq 'source';
   return ''    if $dest eq 'blank';
   return $dest;
 }
 
-# Parse one mapping rule line into (field, pattern, dest).
-#
-# Two pattern forms are supported:
-#
-#   Simple (no alternation):
-#     field | pattern | dest
-#   Pattern may contain \| to match a literal pipe in the data.
-#
-#   Slash-delimited (regex alternation):
-#     field | /pattern|with|alternation/ | dest
-#   The slashes mark the pattern explicitly so | inside is alternation,
-#   not a field separator.
 sub _parse_line ($line) {
   # Slash-delimited pattern: field | /regex/ | dest
   if ( $line =~ /^([^|]+?)\s*\|\s*\/((?:[^\/]|\\.)*?)\/\s*\|\s*(.+?)$/ ) {
@@ -135,13 +119,16 @@ sub _parse_mapping_file ($file) {
   return ( \@rules, $default, $default_skip );
 }
 
-sub Map ( $db_path, $map_file = undef, $verbose = 0 ) {
-  return unless defined $map_file;
+sub Map ( $options ) {
 
-  my ( $rules, $default, $default_skip ) = _parse_mapping_file($map_file);
+  return unless defined $options->{mapfile};
+  my $mapfile  = $options->{mapfile};
+  my $db_path  = $options->{db_path};
+  my $verbose  = $options->{verbose} || 0;
+  my ( $rules, $default, $default_skip ) = _parse_mapping_file($mapfile);
 
-  my $db           = Mojo::SQLite->new($db_path)->options({ sqlite_unicode => 1 })->db;
-  my @transactions = $db->select( 'transactions', '*', { exported => 0 } )->hashes->@*;
+  my $dbmojo       = Mojo::SQLite->new($db_path)->options({ sqlite_unicode => 1 })->db;
+  my @transactions = $dbmojo->select( 'transactions', '*', { exported => 0 } )->hashes->@*;
 
   for my $tx (@transactions) {
     my $mc   = $default;
@@ -167,12 +154,12 @@ sub Map ( $db_path, $map_file = undef, $verbose = 0 ) {
       say "TX $tx->{id} ($tx->{payee}): $result";
     }
 
-    $db->update( 'transactions',
+    $dbmojo->update( 'transactions',
       { mapped_category => $mc, skipped => $skip },
       { id => $tx->{id} } );
   }
 
-  $db->disconnect;
+  $dbmojo->disconnect;
 }
 
 1;

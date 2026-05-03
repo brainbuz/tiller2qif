@@ -22,58 +22,58 @@ require './t/TestHelper.pm';
 # ---------------------------------------------------------------------------
 
 subtest api_ingest => sub {
-  my $dbfile  = uniqfile( 'ingest', 'sqlite3' );
+  my $db_path = uniqfile( 'ingest', 'sqlite3' );
   my $csvfile = uniqfile( 'ingest', 'csv' );
-  my $db      = freshdb($dbfile);
+  my $dbmojo  = freshdb($db_path);
   freshcsv( $csvfile,
     '04/25/2026,1,Checking,100.00,Deposit,Paycheck,Income',
     '04/25/2026,2,Checking,-50.00,Coffee,Cafe,Food',
   );
-  ok( lives { Finance::Tiller2QIF::ingest( input => $csvfile, db => $dbfile ) },
+  ok( lives { Finance::Tiller2QIF::ingest( input => $csvfile, db_path => $db_path ) },
     'ingest() lives' );
-  is( $db->select( 'transactions', ['id'] )->arrays->@*, 2,
+  is( $dbmojo->select( 'transactions', ['id'] )->arrays->@*, 2,
     'ingest() loaded two rows' );
-  $db->disconnect;
+  $dbmojo->disconnect;
 };
 
 subtest api_apply_map => sub {
-  my $dbfile  = uniqfile( 'map', 'sqlite3' );
+  my $db_path = uniqfile( 'map', 'sqlite3' );
   my $csvfile = uniqfile( 'map', 'csv' );
   my $mapfile = uniqfile( 'map', 'map' );
-  my $db      = freshdb($dbfile);
+  my $dbmojo  = freshdb($db_path);
   freshcsv( $csvfile, '04/25/2026,1,Checking,100.00,Deposit,Paycheck,Income' );
   freshmap( $mapfile,
     'category | Income | Income:Salary',
     'default | source',
   );
-  Finance::Tiller2QIF::ingest( input => $csvfile, db => $dbfile );
-  ok( lives { Finance::Tiller2QIF::apply_map( db => $dbfile, mapfile => $mapfile ) },
+  Finance::Tiller2QIF::ingest( input => $csvfile, db_path => $db_path );
+  ok( lives { Finance::Tiller2QIF::apply_map( db_path => $db_path, mapfile => $mapfile ) },
     'apply_map() lives' );
-  is( $db->select( 'transactions', ['mapped_category'], { id => 1 } )->hash->{mapped_category},
+  is( $dbmojo->select( 'transactions', ['mapped_category'], { id => 1 } )->hash->{mapped_category},
     'Income:Salary', 'apply_map() wrote mapped_category' );
-  $db->disconnect;
+  $dbmojo->disconnect;
 };
 
 subtest api_emit => sub {
-  my $dbfile  = uniqfile( 'emit', 'sqlite3' );
+  my $db_path = uniqfile( 'emit', 'sqlite3' );
   my $csvfile = uniqfile( 'emit', 'csv' );
   my $qiffile = uniqfile( 'emit', 'qif' );
-  my $db      = freshdb($dbfile);
+  my $dbmojo  = freshdb($db_path);
   freshcsv( $csvfile, '04/25/2026,1,Checking,100.00,Deposit,Paycheck,Income' );
-  Finance::Tiller2QIF::ingest( input => $csvfile, db => $dbfile );
-  ok( lives { Finance::Tiller2QIF::emit( db => $dbfile, output => $qiffile ) },
+  Finance::Tiller2QIF::ingest( input => $csvfile, db_path => $db_path );
+  ok( lives { Finance::Tiller2QIF::emit( db_path => $db_path, output => $qiffile ) },
     'emit() lives' );
   ok( -e $qiffile, 'emit() created QIF file' );
   like( path($qiffile)->slurp_utf8, qr/PDeposit/, 'emitted QIF contains payee' );
-  $db->disconnect;
+  $dbmojo->disconnect;
 };
 
 subtest api_run => sub {
-  my $dbfile  = uniqfile( 'run', 'sqlite3' );
+  my $db_path = uniqfile( 'run', 'sqlite3' );
   my $csvfile = uniqfile( 'run', 'csv' );
   my $mapfile = uniqfile( 'run', 'map' );
   my $qiffile = uniqfile( 'run', 'qif' );
-  freshdb($dbfile)->disconnect;
+  freshdb($db_path)->disconnect;
   freshcsv( $csvfile, '04/25/2026,1,Checking,50.00,Deposit,Paycheck,Income' );
   freshmap( $mapfile,
     'category | Income | Income:Salary',
@@ -82,7 +82,7 @@ subtest api_run => sub {
   ok( lives {
     Finance::Tiller2QIF::run(
       input   => $csvfile,
-      db      => $dbfile,
+      db_path => $db_path,
       mapfile => $mapfile,
       output  => $qiffile,
     )
@@ -134,47 +134,47 @@ subtest cli_newconfig_missing_config => sub {
 };
 
 subtest cli_newdb => sub {
-  my $dbfile = uniqfile( 'cli_newdb', 'sqlite3' );
-  local @ARGV = ( 'newdb', '--db', $dbfile );
+  my $db_path = uniqfile( 'cli_newdb', 'sqlite3' );
+  local @ARGV = ( 'newdb', '--db', $db_path );
   ok( lives { Finance::Tiller2QIF::run_cli() }, 'newdb with --db returns normally' );
-  ok( -s $dbfile, 'newdb created the database file' );
+  ok( -s $db_path, 'newdb created the database file' );
 };
 
 subtest cli_run => sub {
-  my $dbfile  = uniqfile( 'cli_run', 'sqlite3' );
+  my $db_path = uniqfile( 'cli_run', 'sqlite3' );
   my $csvfile = uniqfile( 'cli_run', 'csv' );
   my $qiffile = uniqfile( 'cli_run', 'qif' );
-  freshdb($dbfile)->disconnect;
+  freshdb($db_path)->disconnect;
   freshcsv( $csvfile, '04/25/2026,1,Checking,75.00,Deposit,Salary,Income' );
-  local @ARGV = ( 'run', '--input', $csvfile, '--db', $dbfile, '--output', $qiffile );
+  local @ARGV = ( 'run', '--input', $csvfile, '--db', $db_path, '--output', $qiffile );
   ok( lives { Finance::Tiller2QIF::run_cli() }, 'cli run returns normally' );
   ok( -e $qiffile, 'cli run produced QIF file' );
 };
 
 subtest cli_ingest_then_emit => sub {
-  my $dbfile  = uniqfile( 'cli_ie', 'sqlite3' );
+  my $db_path = uniqfile( 'cli_ie', 'sqlite3' );
   my $csvfile = uniqfile( 'cli_ie', 'csv' );
   my $qiffile = uniqfile( 'cli_ie', 'qif' );
-  freshdb($dbfile)->disconnect;
+  freshdb($db_path)->disconnect;
   freshcsv( $csvfile, '04/25/2026,1,Checking,30.00,Coffee,Cafe,Food' );
 
-  { local @ARGV = ( 'ingest', '--input', $csvfile, '--db', $dbfile );
+  { local @ARGV = ( 'ingest', '--input', $csvfile, '--db', $db_path );
     ok( lives { Finance::Tiller2QIF::run_cli() }, 'cli ingest returns normally' ); }
 
-  { local @ARGV = ( 'emit', '--db', $dbfile, '--output', $qiffile );
+  { local @ARGV = ( 'emit', '--db', $db_path, '--output', $qiffile );
     ok( lives { Finance::Tiller2QIF::run_cli() }, 'cli emit returns normally' ); }
 
   like( path($qiffile)->slurp_utf8, qr/PCoffee/, 'two-phase cli produced QIF' );
 };
 
 subtest cli_run_verbose => sub {
-  my $dbfile  = uniqfile( 'cli_runv', 'sqlite3' );
+  my $db_path = uniqfile( 'cli_runv', 'sqlite3' );
   my $qiffile = uniqfile( 'cli_runv', 'qif' );
-  freshdb($dbfile)->disconnect;
+  freshdb($db_path)->disconnect;
   local @ARGV = (
     'run',
     '--input',   't/testcase/mapping1.csv',
-    '--db',      $dbfile,
+    '--db',      $db_path,
     '--output',  $qiffile,
     '--mapfile', 't/testcase/mapping1.map',
     '--verbose',
@@ -189,8 +189,8 @@ subtest cli_run_verbose => sub {
 };
 
 subtest cli_newdb_verbose => sub {
-  my $dbfile = uniqfile( 'cli_newdbv', 'sqlite3' );
-  local @ARGV = ( 'newdb', '--db', $dbfile, '--verbose' );
+  my $db_path = uniqfile( 'cli_newdbv', 'sqlite3' );
+  local @ARGV = ( 'newdb', '--db', $db_path, '--verbose' );
   my $out = '';
   ok( lives { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
     'newdb --verbose returns normally' );
@@ -207,61 +207,61 @@ subtest cli_newconfig_verbose => sub {
 };
 
 subtest cli_checkconfig => sub {
-  my $dbfile  = uniqfile( 'cli_chkcfg', 'sqlite3' );
+  my $db_path = uniqfile( 'cli_chkcfg', 'sqlite3' );
   my $csvfile = uniqfile( 'cli_chkcfg', 'csv' );
   my $qiffile = uniqfile( 'cli_chkcfg', 'qif' );
-  freshdb($dbfile)->disconnect;
+  freshdb($db_path)->disconnect;
   freshcsv( $csvfile, '04/25/2026,1,Checking,10.00,Test,Test,Food' );
 
   # checkconfig command reaches line 162 via $cmd =~ /^checkconfig/
   local @ARGV = (
     'checkconfig',
-    '--db',     $dbfile,
+    '--db',     $db_path,
     '--input',  $csvfile,
     '--output', $qiffile,
   );
   my $out = '';
   ok( lives { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
     'checkconfig returns normally' );
-  like( $out, qr/db\s*:/, 'checkconfig output lists db option' );
+  like( $out, qr/db_path\s*:/, 'checkconfig output lists db_path option' );
 };
 
 subtest cli_emit_verbose_checkconfig => sub {
-  my $dbfile  = uniqfile( 'cli_emitv', 'sqlite3' );
+  my $db_path = uniqfile( 'cli_emitv', 'sqlite3' );
   my $csvfile = uniqfile( 'cli_emitv', 'csv' );
   my $qiffile = uniqfile( 'cli_emitv', 'qif' );
-  freshdb($dbfile)->disconnect;
+  freshdb($db_path)->disconnect;
   freshcsv( $csvfile, '04/25/2026,1,Checking,20.00,Test,Test,Food' );
-  Finance::Tiller2QIF::ingest( input => $csvfile, db => $dbfile );
+  Finance::Tiller2QIF::ingest( input => $csvfile, db_path => $db_path );
 
   # --verbose on emit reaches line 162 via $opt->verbose (non-run command)
-  local @ARGV = ( 'emit', '--db', $dbfile, '--output', $qiffile, '--verbose' );
+  local @ARGV = ( 'emit', '--db', $db_path, '--output', $qiffile, '--verbose' );
   my $out = '';
   ok( lives { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
     'emit --verbose returns normally' );
-  like( $out, qr/db\s*:/, 'emit --verbose output lists db option via CheckConfig' );
+  like( $out, qr/db_path\s*:/, 'emit --verbose output lists db_path option via CheckConfig' );
 };
 
 subtest cli_run_checkpoints => sub {
-  my $dbfile  = uniqfile( 'cli_ckpt_run', 'sqlite3' );
+  my $db_path = uniqfile( 'cli_ckpt_run', 'sqlite3' );
   my $csvfile = uniqfile( 'cli_ckpt_run', 'csv' );
   my $qiffile = uniqfile( 'cli_ckpt_run', 'qif' );
-  freshdb($dbfile)->disconnect;
+  freshdb($db_path)->disconnect;
   freshcsv( $csvfile, '04/25/2026,1,Checking,10.00,Test,Test,Food' );
-  local @ARGV = ( 'run', '--input', $csvfile, '--db', $dbfile, '--output', $qiffile );
+  local @ARGV = ( 'run', '--input', $csvfile, '--db', $db_path, '--output', $qiffile );
   ok( lives { Finance::Tiller2QIF::run_cli() }, 'run returns normally' );
-  my @copies = glob( $dbfile . '*' );
+  my @copies = glob( $db_path . '*' );
   ok( @copies > 1, 'run created a checkpoint copy of the database' );
 };
 
 subtest cli_checkpoint_flag => sub {
-  my $dbfile  = uniqfile( 'cli_ckpt_flag', 'sqlite3' );
+  my $db_path = uniqfile( 'cli_ckpt_flag', 'sqlite3' );
   my $csvfile = uniqfile( 'cli_ckpt_flag', 'csv' );
-  freshdb($dbfile)->disconnect;
+  freshdb($db_path)->disconnect;
   freshcsv( $csvfile, '04/25/2026,1,Checking,10.00,Test,Test,Food' );
-  local @ARGV = ( 'ingest', '--input', $csvfile, '--db', $dbfile, '--checkpoint' );
+  local @ARGV = ( 'ingest', '--input', $csvfile, '--db', $db_path, '--checkpoint' );
   ok( lives { Finance::Tiller2QIF::run_cli() }, 'ingest --checkpoint returns normally' );
-  my @copies = glob( $dbfile . '*' );
+  my @copies = glob( $db_path . '*' );
   ok( @copies > 1, '--checkpoint created a checkpoint copy of the database' );
 };
 
@@ -271,23 +271,23 @@ subtest cli_clean_missing_db => sub {
 };
 
 subtest cli_clean => sub {
-  my $dbfile = uniqfile( 'cli_clean', 'sqlite3' );
-  freshdb($dbfile)->disconnect;
+  my $db_path = uniqfile( 'cli_clean', 'sqlite3' );
+  freshdb($db_path)->disconnect;
 
   # Create two checkpoint copies directly, with distinct names
-  Finance::Tiller2QIF::_checkpoint( $dbfile );
+  Finance::Tiller2QIF::_checkpoint( $db_path );
   sleep 1;
-  Finance::Tiller2QIF::_checkpoint( $dbfile );
+  Finance::Tiller2QIF::_checkpoint( $db_path );
 
-  my @before = grep { $_ ne $dbfile } glob( $dbfile . '*' );
+  my @before = grep { $_ ne $db_path } glob( $db_path . '*' );
   ok( @before == 2, 'two checkpoint copies exist before clean' );
 
-  local @ARGV = ( 'clean', '--db', $dbfile );
+  local @ARGV = ( 'clean', '--db', $db_path );
   ok( lives { Finance::Tiller2QIF::run_cli() }, 'clean returns normally' );
 
-  my @after = grep { $_ ne $dbfile } glob( $dbfile . '*' );
+  my @after = grep { $_ ne $db_path } glob( $db_path . '*' );
   ok( @after == 0, 'clean removed all checkpoint copies' );
-  ok( -e $dbfile,  'clean left the original database intact' );
+  ok( -e $db_path,  'clean left the original database intact' );
 };
 
 done_testing();

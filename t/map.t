@@ -21,7 +21,7 @@ subtest no_map_file => sub {
   my $db      = freshdb($dbfile);
   freshcsv( $csvfile, '04/25/2026,1,Checking,10.00,Coffee,Corner Cafe,Food' );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map($dbfile);
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile});
   my $tx = $db->select( 'transactions', ['mapped_category'], { id => 1 } )->hash;
   is( $tx->{mapped_category}, undef, 'No mapping file leaves mapped_category NULL' );
   $db->disconnect;
@@ -41,7 +41,7 @@ subtest category_match => sub {
     'default | source',
   );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my @rows = $db->select( 'transactions', [qw(id mapped_category)],
     {}, { order_by => 'id' } )->hashes->@*;
   is( $rows[0]{mapped_category}, 'Expenses:Food', 'Matched category is mapped' );
@@ -60,7 +60,7 @@ subtest blank_destination => sub {
     'default | source',
   );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my $tx = $db->select( 'transactions', ['mapped_category'], { id => 4 } )->hash;
   is( $tx->{mapped_category}, '', 'blank keyword sets mapped_category to empty string' );
   $db->disconnect;
@@ -80,7 +80,7 @@ subtest default_blank => sub {
     'default | blank',
   );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my @rows = $db->select( 'transactions', [qw(id mapped_category)],
     {}, { order_by => 'id' } )->hashes->@*;
   is( $rows[0]{mapped_category}, 'Revenues:Salary', 'Rule match overrides blank default' );
@@ -100,7 +100,7 @@ subtest first_match_wins => sub {
     'default | source',
   );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my $tx = $db->select( 'transactions', ['mapped_category'], { id => 7 } )->hash;
   is( $tx->{mapped_category}, 'Expenses:Food', 'First matching rule wins' );
   $db->disconnect;
@@ -117,7 +117,7 @@ subtest payee_match => sub {
     'default | source',
   );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my $tx = $db->select( 'transactions', ['mapped_category'], { id => 8 } )->hash;
   is( $tx->{mapped_category}, '', 'payee match with blank destination works' );
   $db->disconnect;
@@ -138,7 +138,7 @@ subtest regex_alternation => sub {
     'default | source',
   );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my @rows = $db->select( 'transactions', [qw(id mapped_category)],
     {}, { order_by => 'id' } )->hashes->@*;
   is( $rows[0]{mapped_category}, 'Expenses:Dining', 'First alternation matched' );
@@ -158,8 +158,8 @@ subtest rerun_is_idempotent => sub {
     'default | source',
   );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my $tx = $db->select( 'transactions', ['mapped_category'], { id => 12 } )->hash;
   is( $tx->{mapped_category}, 'Expenses:Food', 'Running map twice gives same result' );
   $db->disconnect;
@@ -170,7 +170,7 @@ subtest invalid_field => sub {
   my $mapfile = uniqfile( 'map_badf', 'map' );
   freshdb($dbfile);
   freshmap( $mapfile, 'badfield | foo | bar' );
-  ok( dies { Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile ) },
+  ok( dies { Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile}) },
     'Unknown field name dies' );
 };
 
@@ -179,7 +179,7 @@ subtest invalid_regex => sub {
   my $mapfile = uniqfile( 'map_badr', 'map' );
   freshdb($dbfile);
   freshmap( $mapfile, 'category | [unclosed | dest' );
-  ok( dies { Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile ) },
+  ok( dies { Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile}) },
     'Invalid regex dies' );
 };
 
@@ -194,7 +194,7 @@ subtest case_insensitive_field => sub {
     'Default | source',
   );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my $tx = $db->select( 'transactions', ['mapped_category'], { id => 1 } )->hash;
   is( $tx->{mapped_category}, 'Expenses:Food', 'Field name in mapping file is case-insensitive' );
   $db->disconnect;
@@ -215,7 +215,7 @@ subtest case_insensitive_pattern => sub {
     'default | source',
   );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my @rows = $db->select( 'transactions', [qw(id mapped_category)],
     {}, { order_by => 'id' } )->hashes->@*;
   is( $rows[0]{mapped_category}, 'Expenses:Food', 'Uppercase value matched by lowercase pattern' );
@@ -235,7 +235,7 @@ subtest destination_preserves_case => sub {
     'default | source',
   );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my $tx = $db->select( 'transactions', ['mapped_category'], { id => 1 } )->hash;
   is( $tx->{mapped_category}, 'Expenses:Food:CafeAndDining',
     'Destination category case is preserved exactly' );
@@ -256,7 +256,7 @@ subtest skip_rule => sub {
     'default | source',
   );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my %tx = map { $_->{id} => $_ }
     $db->select( 'transactions', [qw(id skipped mapped_category)] )->hashes->@*;
   is( $tx{1}{skipped},          1,     'Matched skip rule sets skipped = 1' );
@@ -279,7 +279,7 @@ subtest skip_default => sub {
     'default | skip',
   );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my %tx = map { $_->{id} => $_ }
     $db->select( 'transactions', [qw(id skipped mapped_category)] )->hashes->@*;
   is( $tx{1}{skipped},         0,                'Matched rule overrides skip default' );
@@ -296,13 +296,13 @@ subtest skip_rerun => sub {
   freshcsv( $csvfile, '04/25/2026,1,Checking,100.00,Payment,Card Payment,Credit Card Payments' );
   freshmap( $mapfile, 'category | Credit Card Payments | skip', 'default | source' );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   is( $db->select( 'transactions', ['skipped'], { id => 1 } )->hash->{skipped},
     1, 'Transaction skipped after first map run' );
 
   # Rewrite map file without the skip rule
   path($mapfile)->spew_utf8( "default | source\n" );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   is( $db->select( 'transactions', ['skipped'], { id => 1 } )->hash->{skipped},
     0, 'Re-run without skip rule resets skipped to 0' );
 
@@ -324,7 +324,7 @@ subtest escaped_pipe => sub {
     'default | source',
   );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my %tx = map { $_->{id} => $_ }
     $db->select( 'transactions', [qw(id mapped_category)] )->hashes->@*;
   is( $tx{1}{mapped_category}, 'Expenses:Transfers',
@@ -350,7 +350,7 @@ subtest account_filter => sub {
     'default | source',
   );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my %tx = map { $_->{id} => $_ }
     $db->select( 'transactions', [qw(id mapped_category)] )->hashes->@*;
   is( $tx{1}{mapped_category}, 'Expenses:Food',
@@ -375,7 +375,7 @@ subtest account_filter_alternation => sub {
     'default | source',
   );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my %tx = map { $_->{id} => $_ }
     $db->select( 'transactions', [qw(id mapped_category)] )->hashes->@*;
   is( $tx{1}{mapped_category}, 'Expenses:Food', 'Checking matches alternation filter' );
@@ -399,7 +399,7 @@ subtest account_filter_skip => sub {
     'default | source',
   );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my %tx = map { $_->{id} => $_ }
     $db->select( 'transactions', [qw(id skipped mapped_category)] )->hashes->@*;
   is( $tx{1}{skipped},         0,                          'Checking payment not skipped' );
@@ -415,7 +415,7 @@ subtest realistic_testcase => sub {
   my $mapfile = 't/testcase/mapping1.map';
   my $db      = freshdb($dbfile);
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my %tx = map { $_->{id} => $_ }
     $db->select( 'transactions', [qw(id payee mapped_category)] )->hashes->@*;
   is( $tx{TXN001}{mapped_category}, 'Expenses:Entertainment:Streaming Services',

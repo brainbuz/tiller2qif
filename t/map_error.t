@@ -19,7 +19,7 @@ subtest 'account filter on default line dies' => sub {
   freshmap($mapfile,
     '[Checking] default | Expenses:Groceries',
   );
-  ok(dies { Finance::Tiller2QIF::Map::Map('dummy.db', $mapfile) },
+  ok(dies { Finance::Tiller2QIF::Map::Map({db_path => 'dummy.db', mapfile => $mapfile}) },
     'Account filter on default line triggers error');
 };
 
@@ -28,7 +28,7 @@ subtest 'default line missing destination dies' => sub {
   freshmap($mapfile,
     'default | ',
   );
-  ok(dies { Finance::Tiller2QIF::Map::Map('dummy.db', $mapfile) },
+  ok(dies { Finance::Tiller2QIF::Map::Map({db_path => 'dummy.db', mapfile => $mapfile}) },
     'Default line missing destination triggers error');
 };
 
@@ -38,7 +38,7 @@ subtest 'unknown field dies' => sub {
     'notafield | foo | Expenses:Other',
     'default | source',
   );
-  ok(dies { Finance::Tiller2QIF::Map::Map('dummy.db', $mapfile) },
+  ok(dies { Finance::Tiller2QIF::Map::Map({db_path => 'dummy.db', mapfile => $mapfile}) },
     'Unknown field triggers error');
 };
 
@@ -48,7 +48,7 @@ subtest 'missing pattern dies' => sub {
     'payee | | Expenses:Other',
     'default | source',
   );
-  ok(dies { Finance::Tiller2QIF::Map::Map('dummy.db', $mapfile) },
+  ok(dies { Finance::Tiller2QIF::Map::Map({db_path => 'dummy.db', mapfile => $mapfile}) },
     'Missing pattern triggers error');
 };
 
@@ -58,7 +58,7 @@ subtest 'missing destination dies' => sub {
     'payee | foo | ',
     'default | source',
   );
-  ok(dies { Finance::Tiller2QIF::Map::Map('dummy.db', $mapfile) },
+  ok(dies { Finance::Tiller2QIF::Map::Map({db_path => 'dummy.db', mapfile => $mapfile}) },
     'Missing destination triggers error');
 };
 
@@ -68,7 +68,7 @@ subtest 'invalid account filter regex dies' => sub {
     '[foo(] payee | bar | Expenses:Other',
     'default | source',
   );
-  ok(dies { Finance::Tiller2QIF::Map::Map('dummy.db', $mapfile) },
+  ok(dies { Finance::Tiller2QIF::Map::Map({db_path => 'dummy.db', mapfile => $mapfile}) },
     'Invalid account filter regex triggers error');
 };
 
@@ -78,7 +78,7 @@ subtest 'invalid pattern regex dies' => sub {
     'payee | foo( | Expenses:Other',
     'default | source',
   );
-  ok(dies { Finance::Tiller2QIF::Map::Map('dummy.db', $mapfile) },
+  ok(dies { Finance::Tiller2QIF::Map::Map({db_path => 'dummy.db', mapfile => $mapfile}) },
     'Invalid pattern regex triggers error');
 };
 

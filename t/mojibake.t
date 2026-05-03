@@ -82,7 +82,7 @@ subtest mapping_rules_with_unicode_patterns => sub {
 
   my $db = freshdb($dbfile);
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
 
   my $rows = $db->select( 'transactions' )->hashes();
   is( $rows->[0]{mapped_category}, 'Expenses:Coffee', 'café pattern matched' );
@@ -114,7 +114,7 @@ subtest mapping_destination_with_unicode => sub {
 
   my $db = freshdb($dbfile);
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
 
   my $rows = $db->select( 'transactions' )->hashes();
   is( $rows->[0]{mapped_category}, 'Expenses:Café', 'Unicode destination café' );
@@ -167,7 +167,7 @@ subtest account_filter_with_unicode => sub {
 
   my $db = freshdb($dbfile);
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
 
   my $rows = $db->select( 'transactions', '*', {}, { order_by => 'id' } )->hashes();
   is( $rows->[0]{mapped_category}, 'Expenses:Matched', 'Checking account matched' );
@@ -194,7 +194,7 @@ subtest literal_pipe_with_unicode => sub {
 
   my $db = freshdb($dbfile);
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
 
   my $rows = $db->select( 'transactions' )->hashes();
   is( $rows->[0]{mapped_category}, 'Expenses:Café|Bar', 'café|bar literal pipe preserved' );
@@ -222,7 +222,7 @@ subtest mixed_unicode_roundtrip => sub {
 
   my $db = freshdb($dbfile);
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
 
   my $rows = $db->select( 'transactions' )->hashes();
   my $row = $rows->[0];
@@ -274,7 +274,7 @@ subtest hebrew_arabic_complete_pipeline => sub {
   is( $rows->[1]{payee}, $hebrew_payee2, "Hebrew payee '$hebrew_payee2' preserved" );
 
   # Apply mapping
-  Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
 
   $rows = $db->select( 'transactions' )->hashes();
   is( $rows->[0]{mapped_category}, $hebrew_category, "Row 1: Hebrew payee mapped to Hebrew category '$hebrew_category'" );

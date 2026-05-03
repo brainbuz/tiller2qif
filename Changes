@@ -1,5 +1,7 @@
 Revision history for Finance-Tiller2QIF
 
+1.04      2026-05-03
+  - refactoring.
 1.03      2026-05-01
   - Add test to confirm iso8601 dates work
 1.02      2026-04-29

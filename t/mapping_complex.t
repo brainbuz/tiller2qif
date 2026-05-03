@@ -106,7 +106,7 @@ freshmap( $mapfile,
 );
 
 Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
-Finance::Tiller2QIF::Map::Map( $dbfile, $mapfile );
+Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
 
 my %tx = map { $_->{id} => $_ }
   $db->select( 'transactions', '*' )->hashes->@*;
