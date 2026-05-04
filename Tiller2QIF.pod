@@ -186,6 +186,11 @@ For a simple pattern containing no C<|>, write it as-is:
 
   payee | Starbucks | Expenses:Coffee
 
+To allow setting a category with only an AccountFilter, use C<*> as the entire pattern to match against any field value:
+
+  # Without an account filter all transactions will match!
+  [AccountFilter] any_matchable_field | * | new_category
+
 To use regex alternation (matching either of several values), enclose the
 pattern in forward slashes:
 

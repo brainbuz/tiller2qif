@@ -429,6 +429,52 @@ subtest realistic_testcase => sub {
   $db->disconnect;
 };
 
+my $wildcarddb = q{
+  INSERT INTO transactions
+  (id, account, date, amount, payee, memo, category, mapped_category, check_number, skipped, exported)
+  VALUES
+  ('X2343', 'DINERS CLUB', '2024-11-14', 88.22, 'Pennsylvania Wine and Spirits Store 752', '', 'Groceries', '', '', 0, 0),
+  ('EERWOWWS71Y', 'AMERICAN EXPRESS - 9377', '2024-11-14', 414.85, 'Toodles Stationary', '', 'Incorrect', '', '', 0, 0),
+  ('78344FIOD', 'BANK OF GOTHAM - 4499', '2024-11-14', 88.22, 'Pennsylvania Wine and Spirits Store 752', '', 'Groceries', '', '', 0, 0),
+  ('1654', 'TOTALLUSH STORE CARD', '2024-11-14', 79.16, 'TL Outlet Wilmington, DE', 'Jack Daniels Sale', 'Restaurants', '', '', 0, 0),
+  ('1965', 'TOTALLUSH STORE CARD', '2024-11-14', 62.18, 'TL Concord Pike Wilmington, DE', 'Best Single Malt Selection in Delaware', 'Groceries', '', '', 0, 0),
+  ('78267FIOD', 'BANK OF GOTHAM - 4499', '2024-11-14', 4265.21, 'Gotham Mortgage & Usury', '', 'XFER', '', '', 0, 0)
+  ;
+};
+
+my $wildcardmap = q{
+  [totallush] payee | * | Expenses:Alcohol
+  payee | toodles | Expenses:Office Supply
+  [DINERS CLUB] category | /*/ | Expenses:Restaurants
+  default | uncategorized
+};
+
+subtest wildcard_on_field => sub {
+  my $dbfile  = uniqfile( 'wildcard_on_field', 'sqlite3' );
+  my $mapfile = uniqfile( 'wildcard_on_field', 'map' );
+  my $db      = freshdb($dbfile);
+  $db->query($wildcarddb);
+  freshmap( $mapfile, $wildcardmap );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
+  my %tx = map { $_->{id} => $_ }
+    $db->select( 'transactions', [qw(id account payee category mapped_category)],
+      {}, { order_by => 'id' } )->hashes->@*;
+
+  is( $tx{'X2343'}{mapped_category}, 'Expenses:Restaurants',
+    'DINERS CLUB wildcard on category matches any category value' );
+  is( $tx{'EERWOWWS71Y'}{mapped_category}, 'Expenses:Office Supply',
+    'toodles payee matches case-insensitive' );
+  is( $tx{'78344FIOD'}{mapped_category}, 'uncategorized',
+    'BANK OF GOTHAM transaction does not match any rules' );
+  is( $tx{'1654'}{mapped_category}, 'Expenses:Alcohol',
+    'TOTALLUSH account wildcard on payee matches' );
+  is( $tx{'1965'}{mapped_category}, 'Expenses:Alcohol',
+    'TOTALLUSH account wildcard on payee matches again' );
+  is( $tx{'78267FIOD'}{mapped_category}, 'uncategorized',
+    'BANK OF GOTHAM XFER transaction does not match any rules' );
+  $db->disconnect;
+};
+
 done_testing();
 
 unlink glob "t/tmp/t2q_*" if test_pass();

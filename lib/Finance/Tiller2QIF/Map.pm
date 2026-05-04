@@ -107,7 +107,8 @@ sub _parse_mapping_file ($file) {
     die "Missing destination at line $lineno (use 'blank' for empty category)\n"
       unless defined $dest && length $dest;
 
-    my $re = eval { qr/$pattern/i }
+    my $re_src = ( $pattern eq '*' ) ? '.*' : $pattern;
+    my $re = eval { qr/$re_src/i }
       or die "Invalid regex '$pattern' at line $lineno: $@\n";
 
     my $is_skip = ( $dest eq 'skip' ? 1 : 0 );
