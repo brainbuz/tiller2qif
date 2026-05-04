@@ -151,6 +151,34 @@ subtest cli_run => sub {
   ok( -e $qiffile, 'cli run produced QIF file' );
 };
 
+subtest cli_run_beforeafter => sub {
+  my $db_path = uniqfile( 'cli_bfaf', 'sqlite3' );
+  my $csvfile = uniqfile( 'cli_bfaf', 'csv' );
+  my $mapfile = uniqfile( 'cli_bfaf', 'map' );
+  my $qiffile = uniqfile( 'cli_bfaf', 'qif' );
+  freshdb($db_path)->disconnect;
+  freshcsv( $csvfile, '04/25/2026,1,Checking,10.00,Coffee,Cafe,Food' );
+  freshmap( $mapfile,
+    '[Checking-VIP] category | Food | Expenses:Dining',
+    'default | source',
+  );
+  local @ARGV = (
+    'run',
+    '--input',     $csvfile,
+    '--db',        $db_path,
+    '--output',    $qiffile,
+    '--mapfile',   $mapfile,
+    '--beforemap', 't/testcase/beforemap.sql',
+    '--aftermap',  't/testcase/aftermap.sql',
+  );
+  ok( lives { Finance::Tiller2QIF::run_cli() }, 'cli run with beforemap and aftermap lives' );
+  my $dbmojo = Mojo::SQLite->new($db_path)->options({ sqlite_unicode => 1 })->db;
+  my $tx = $dbmojo->select( 'transactions', [qw(mapped_category check_number)], { id => 1 } )->hash;
+  is( $tx->{mapped_category}, 'Expenses:Dining', 'beforemap+map fired via account rename' );
+  is( $tx->{check_number},    'after_ran',       'aftermap ran after map via CLI' );
+  $dbmojo->disconnect;
+};
+
 subtest cli_ingest_then_emit => sub {
   my $db_path = uniqfile( 'cli_ie', 'sqlite3' );
   my $csvfile = uniqfile( 'cli_ie', 'csv' );

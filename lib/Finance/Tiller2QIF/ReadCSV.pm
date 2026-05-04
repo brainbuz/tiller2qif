@@ -72,8 +72,8 @@ sub _normalize_amount ($raw) {
   return $amount;
 }
 
-sub _prepare_insert ($dbh) {
-  $dbh->prepare(
+sub _prepare_insert ($dbdbi) {
+  $dbdbi->prepare(
     q{
     INSERT OR IGNORE INTO transactions (id, account, date, amount, payee, memo, category, check_number)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -95,8 +95,8 @@ sub _validate_csv ( $csv_file, $csv, $fh, $header ) {
   }
 }
 
-sub _prepare_count ($dbh) {
-  $dbh->prepare(
+sub _prepare_count ($dbdbi) {
+  $dbdbi->prepare(
     q{ SELECT COUNT (*) FROM transactions;  }
   );
 }
@@ -135,7 +135,7 @@ sub _insert_row ( $insert, $columns, $row, $verbose ) {
 }
 
 sub Ingest ( $csv_file, $db_path, $verbose=0 ) {
-  my $dbh = DBI->connect(
+  my $dbdbi = DBI->connect(
     "dbi:SQLite:dbname=$db_path",
     "", "",
     {
@@ -151,8 +151,8 @@ sub Ingest ( $csv_file, $db_path, $verbose=0 ) {
     or die "CSV appears empty or unreadable\n";
   _validate_csv( $csv_file, $csv, $fh, $header );
 
-  my $insert = _prepare_insert($dbh);
-  my $counter = _prepare_count($dbh);
+  my $insert = _prepare_insert($dbdbi);
+  my $counter = _prepare_count($dbdbi);
   $counter->execute();
   my ($StartCnt) = $counter->fetchrow_array;
 

@@ -19,6 +19,21 @@ Create a new SQLite database at C<$db_path> with the transactions table schema. 
 
 Create a starter JSON configuration file at C<$config_path> with commented examples of all available options. Dies if unable to write the file.
 
+=head2 CheckConfig
+
+  Finance::Tiller2QIF::Util::CheckConfig( %options );
+
+Prints the current merged option values to STDOUT and checks that referenced
+files exist and are readable/writable. Called automatically when C<--verbose>
+is set or when the C<checkconfig> command is used.
+
+=head2 vPrint
+
+  vPrint( $verbose, @messages );
+
+Prints each message in C<@messages> to STDOUT only when C<$verbose> is true.
+Exported on request; used internally by other Finance::Tiller2QIF modules.
+
 =head1 AUTHOR
 
 John Karr E<lt>brainbuz@cpan.orgE<gt>
@@ -58,11 +73,11 @@ CREATE TABLE IF NOT EXISTS transactions (
 );
 /;
 
-sub InitDB ($sqlite) {
-  my $db = Mojo::SQLite->new($sqlite)->options( { sqlite_unicode => 1 } );
+sub InitDB ($db_path) {
+  my $dbmojo = Mojo::SQLite->new($db_path)->options( { sqlite_unicode => 1 } );
   # uncoverable branch true
-  $db->db->query($newDB) || die "unable to initialize database $!\n";
-  say "Database $sqlite created";
+  $dbmojo->db->query($newDB) || die "unable to initialize database $!\n";
+  say "Database $db_path created";
 }
 
 my $example = q|
@@ -74,7 +89,9 @@ my $example = q|
   # "input": "~/Downloads/mytillerdump.csv",
   # "output": "/tmp/tillerout.qif",
   # "db": "~/.data/tiller2qif.sqlite3",
-  # "mapfile": "~/data/tiller2qif.mapfile"
+  # "mapfile": "~/data/tiller2qif.mapfile",
+  # "beforemap" : "~/some.sql",
+  # "aftermap" : "~/other.sql",
 }
 |;
 
@@ -101,9 +118,9 @@ sub CheckConfig (%options) {
   }
 
   say '';
-  if ( defined $options{db} ) {
-    unless ( -r $options{db} ) {
-      say "Problem: db '${options{db}}' does not exist or can't be read.";
+  if ( defined $options{db_path} ) {
+    unless ( -r $options{db_path} ) {
+      say "Problem: db '${options{db_path}}' does not exist or can't be read.";
     }
   }
   if ( defined $options{input} ) {

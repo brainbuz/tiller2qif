@@ -30,6 +30,10 @@ use Path::Tiny;
 use utf8;
 use warnings FATAL => 'utf8';
 use feature qw/signatures postderef/;
+use open ':std', ':encoding(UTF-8)';
+
+no warnings 'experimental::try';
+use feature 'try';
 
 my %VALID_FIELDS = map { $_ => 1 } qw(category payee memo account date amount);
 
@@ -119,15 +123,50 @@ sub _parse_mapping_file ($file) {
   return ( \@rules, $default, $default_skip );
 }
 
+sub _run_sql_file ( $dbmojo, $file, $verbose ) {
+  my $sql = path($file)->slurp_utf8;
+  my @statements;
+  my $current = '';
+  for my $line ( split /\n/, $sql ) {
+    $current .= $line . "\n";
+    if ( $line =~ /;\s*$/ ) {
+      push @statements, $current if $current =~ /\S/;
+      $current = '';
+    }
+  }
+  push @statements, $current if $current =~ /\S/;
+  for my $stmt (@statements) {
+    my $rows = $dbmojo->dbh->do($stmt);
+    if ( $verbose ) {
+      ( my $summary = $stmt ) =~ s/\s+/ /g;
+      $summary =~ s/^\s+|\s+$//g;
+      # dbi returns 0E0 meaning 0 but true
+      say "  " . int($rows) . " row(s) affected: $summary";
+    }
+  }
+}
+
 sub Map ( $options ) {
 
   return unless defined $options->{mapfile};
-  my $mapfile  = $options->{mapfile};
-  my $db_path  = $options->{db_path};
-  my $verbose  = $options->{verbose} || 0;
+  my $mapfile   = $options->{mapfile};
+  my $db_path   = $options->{db_path};
+  my $verbose   = $options->{verbose}   || 0;
+  my $beforemap = $options->{beforemap} // undef;
+  my $aftermap  = $options->{aftermap}  // undef;
   my ( $rules, $default, $default_skip ) = _parse_mapping_file($mapfile);
 
-  my $dbmojo       = Mojo::SQLite->new($db_path)->options({ sqlite_unicode => 1 })->db;
+  my $dbmojo = Mojo::SQLite->new($db_path)->options({ sqlite_unicode => 1 })->db;
+
+  if ( defined $beforemap ) {
+    say "Running beforemap: $beforemap" if $verbose;
+    try {
+      _run_sql_file( $dbmojo, $beforemap, $verbose );
+      say "beforemap completed successfully" if $verbose;
+    }
+    catch ($e) { warn "beforemap error: $e" }
+  }
+
   my @transactions = $dbmojo->select( 'transactions', '*', { exported => 0 } )->hashes->@*;
 
   for my $tx (@transactions) {
@@ -157,6 +196,15 @@ sub Map ( $options ) {
     $dbmojo->update( 'transactions',
       { mapped_category => $mc, skipped => $skip },
       { id => $tx->{id} } );
+  }
+
+  if ( defined $aftermap ) {
+    say "Running aftermap: $aftermap" if $verbose;
+    try {
+      _run_sql_file( $dbmojo, $aftermap, $verbose );
+      say "aftermap completed successfully" if $verbose;
+    }
+    catch ($e) { warn "aftermap error: $e" }
   }
 
   $dbmojo->disconnect;

@@ -109,6 +109,8 @@ sub run_cli {
       [ 'output|o=s',   "QIF file to write     (emit, run)" ],
       [ 'db|d=s', "SQLite database file  (all commands except newconfig)" ],
       [ 'mapfile|f=s', "Category mapping file (map, run — optional)" ],
+      [ 'beforemap=s', "sql script to run prior to map" ],
+      [ 'aftermap=s',  "sql script to run after map" ],
       [ 'verbose|v',   "Print detailed progress information" ],
       [],
       [ 'help|h', "Print usage and exit", { shortcircuit => 1 } ],
@@ -156,7 +158,7 @@ sub run_cli {
     %options = %$config;
   }
 
-  for my $key (qw( input output db verbose mapfile )) {
+  for my $key (qw( input output db verbose mapfile beforemap aftermap )) {
     my $val = $opt->$key();
     $options{$key} = $val if defined $val;
   }
@@ -221,3 +223,5 @@ sub run_cli {
 }
 
 1;
+
+=for Pod::Coverage ingest apply_map emit run run_cli

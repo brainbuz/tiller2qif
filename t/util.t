@@ -53,9 +53,9 @@ subtest 'CheckConfig output' => sub {
 
 subtest 'CheckConfig bad db' => sub {
     my $out = capture_stdout {
-        Finance::Tiller2QIF::Util::CheckConfig( db => '/no/such/file.sqlite3' );
+        Finance::Tiller2QIF::Util::CheckConfig( db_path => '/no/such/file.sqlite3' );
     };
-    like( $out, qr/Problem.*db/, 'CheckConfig reports unreadable db' );
+    like( $out, qr/Problem.*db/, 'CheckConfig reports unreadable db_path' );
 };
 
 subtest 'CheckConfig bad input' => sub {
