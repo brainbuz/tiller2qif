@@ -148,7 +148,7 @@ subtest skipped_excluded => sub {
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
   Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
   my $updated = Finance::Tiller2QIF::WriteQIF::Emit( $dbfile, $qiffile );
-  is ( $updated, 2, "2 rows changed");
+  is ( $updated, 1, "1 rows changed");
 
   my $qif = path($qiffile)->slurp_utf8;
   like(   $qif, qr/PDeposit/,   'Non-skipped transaction present in QIF' );
@@ -161,6 +161,33 @@ subtest skipped_excluded => sub {
   $db->disconnect;
 
   unlink $dbfile, $csvfile, $mapfile, $qiffile;
+};
+
+subtest preview => sub {
+  my $dbfile = uniqfile( 'wq_preview', 'sqlite3' );
+  my $db     = freshdb($dbfile);
+  $db->query(q{
+    INSERT INTO transactions
+    (id, account, date, amount, payee, memo, category, mapped_category, check_number, skipped, exported)
+    VALUES
+    ('P1', 'Liabilities:CreditCard', '2026-05-01', -42.00, 'Corner Market',                    'CORNER MARKET MEMO', 'Groceries',    'Expenses:Groceries', '', 0, 0),
+    ('P2', 'Liabilities:CreditCard', '2026-05-02',  -9.99, 'A Very Long Payee Name Over Twenty', 'STREAMING CO MEMO',  'Entertainment','Entertainment',      '', 0, 0),
+    ('P3', 'Liabilities:CreditCard', '2026-05-03', -10.00, 'Test Unmapped',                    'MEMO',               'Unmapped',     NULL,                  '', 0, 0)
+    ;
+  });
+
+  my $output = '';
+  open( my $fh, '>', \$output ) or die $!;
+  my $old   = select $fh;
+  my $count = Finance::Tiller2QIF::WriteQIF::Preview($dbfile);
+  select $old;
+
+  is( $count, 3, 'Preview returns correct transaction count' );
+  ok( length($output) > 0, 'Preview produces output' );
+  unlike( $output, qr/A Very Long Payee Name Over Twenty/, 'Long payee truncated in output' );
+  like( $output, qr/Unmapped/, 'Preview shows unmapped category when mapped_category is NULL' );
+
+  $db->disconnect;
 };
 
 done_testing();

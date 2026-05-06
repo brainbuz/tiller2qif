@@ -13,6 +13,14 @@ Applies user-defined mapping rules to transactions in the SQLite database. Rules
 
 Apply mapping rules from C<$mapfile> to transactions in the database. C<$mapfile> is optional; if omitted, transactions pass through unchanged. Rules are evaluated in order; the first matching rule sets the transaction's C<mapped_category> and/or C<skipped> flag.
 
+=head2 Rule ordering
+
+Rules are first-match-wins, so order matters. If a rule is not firing as expected, the most common cause is that an earlier rule is capturing the transaction first.
+
+Place specific overrides I<before> broad rules. For example, a C<payee | Wawa | blank> rule must appear before any C<category | Groceries | Expenses:Groceries> rule, or the category rule will match Wawa transactions first and the payee rule will never be evaluated.
+
+A good convention is to put specific payee and memo overrides near the top, and broad category-renaming rules (which map source categories to chart-of-accounts names) near the bottom. Category renaming is the least specific operation and should generally be last.
+
 =head1 AUTHOR
 
 John Karr E<lt>brainbuz@cpan.orgE<gt>
@@ -61,13 +69,14 @@ sub _parse_line ($line) {
   my $field   = shift @parts;
   my $dest    = pop @parts;
   my $pattern = $parts[0] // '';
-  return ( $field, $pattern, $dest // '' );
+  return ( $field, $pattern, $dest );
 }
 
 sub _parse_mapping_file ($file) {
   my @rules;
-  my $default      = undef;  # undef => source
-  my $default_skip = 0;
+  my $default      = undef;  # parse-time constant: undef means use source category
+  my $default_skip = 0;      # parse-time constant: reset into $skip at the top of each tx loop
+                             # defined from default rule $dest.
 
   my $lineno = 0;
   for my $line ( path($file)->lines_utf8({ chomp => 1 }) ) {
@@ -115,6 +124,7 @@ sub _parse_mapping_file ($file) {
     push @rules, {
       field          => $field,
       pattern        => $re,
+      pattern_str    => $pattern,
       destination    => ( $is_skip ? undef : _resolve_dest($dest) ),
       skip           => $is_skip,
       account_filter => $acct_re,
@@ -131,7 +141,7 @@ sub _run_sql_file ( $dbmojo, $file, $verbose ) {
   for my $line ( split /\n/, $sql ) {
     $current .= $line . "\n";
     if ( $line =~ /;\s*$/ ) {
-      push @statements, $current if $current =~ /\S/;
+      push @statements, $current;
       $current = '';
     }
   }
@@ -171,20 +181,20 @@ sub Map ( $options ) {
   my @transactions = $dbmojo->select( 'transactions', '*', { exported => 0 } )->hashes->@*;
 
   for my $tx (@transactions) {
-    my $mc   = $default;
-    my $skip = $default_skip;
+    my $mc   = $default;       # reset each tx; overwritten if a rule matches
+    my $skip = $default_skip;  # reset each tx; overwritten if a rule matches
     my $matched_rule;
 
     MAPRULE: for my $rule (@$rules) {
       if ( defined $rule->{account_filter} ) {
-        next MAPRULE unless ( $tx->{account} // '' ) =~ $rule->{account_filter};
+        next MAPRULE unless $tx->{account} =~ $rule->{account_filter};
       }
       my $val = $tx->{ $rule->{field} };
       next MAPRULE unless defined $val;
       if ( $val =~ $rule->{pattern} ) {
         $mc   = $rule->{destination};
         $skip = $rule->{skip};
-        $matched_rule = "$rule->{field} ~ /$rule->{pattern}/ => " . ($rule->{skip} ? 'skip' : ($mc // 'source'));
+        $matched_rule = "$rule->{field} ~ /$rule->{pattern_str}/ => " . ($rule->{skip} ? 'skip' : ($mc // 'source'));
         last MAPRULE;
       }
     }
@@ -195,7 +205,7 @@ sub Map ( $options ) {
     }
 
     $dbmojo->update( 'transactions',
-      { mapped_category => $mc, skipped => $skip },
+      { mapped_category => $mc, skipped => $skip, exported => $skip },
       { id => $tx->{id} } );
   }
 

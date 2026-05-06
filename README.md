@@ -12,13 +12,6 @@ Convert Tiller CSV exports to QIF for import into Financial software like GnuCas
 
     # Command-line
     tiller2qif run --input export.csv --db tiller.sqlite3 \
-                   --output import.qif [--mapfile mapping.txt]
-
-    # Programmatic — see PROGRAMMATIC USE below
-    use Finance::Tiller2QIF;
-
-    Finance::Tiller2QIF::run(
-      input   => 'export.csv',
       db_path => 'tiller.sqlite3',
       mapfile => 'mapping.txt',
       output  => 'import.qif',
@@ -83,6 +76,7 @@ tiller2qif works with Strawberry Perl, after installing Strawberry Perl, install
         tiller2qif map --db tiller.sqlite3 [--mapfile mapping.txt] \
                        [--beforemap before.sql] [--aftermap after.sql]
 
+- **preview** -- preview the records that would be emitted
 - **emit** -- write QIF from the database
 
         tiller2qif emit --db tiller.sqlite3 --output import.qif
@@ -134,6 +128,7 @@ fire.
 - **--aftermap** Path to a SQL script to execute against the database immediately
 after the mapping rules are applied.  Useful for post-processing the mapped results —
 for example, marking or transforming rows based on what the map phase produced.
+- **confirm** -- run preview before emit (including on run) and prompt for confirmation to continue.
 
 # MAPPING FILE
 
@@ -157,6 +152,11 @@ naturally: `[Checking|Savings]`. Omit to match all accounts.
     For a simple pattern containing no `|`, write it as-is:
 
         payee | Starbucks | Expenses:Coffee
+
+    To allow setting a category with only an AccountFilter, use `*` as the entire pattern to match against any field value:
+
+        # Without an account filter all transactions will match!
+        [AccountFilter] any_matchable_field | * | new_category
 
     To use regex alternation (matching either of several values), enclose the
     pattern in forward slashes:
@@ -218,12 +218,14 @@ If the `default` line is omitted, unmatched transactions behave as
 
 # Advanced Use
 
-You can write SQL scripts or use an interactive sqlite3 client to make changes between steps. For example your Tiller sheet might have an account "Checking", while your table of accounts has "Assets::Current Assets::Bank::Checking". Custom SQL you keep the short name in Tiller even though mapping rules can't rename accounts.
+You can write SQL scripts or use an interactive sqlite3 client to make changes between steps. For example your Tiller sheet might have an account "Checking", while your table of accounts has "Assets::Current Assets::Bank::Checking". With custom SQL you can keep the short name in Tiller even though mapping rules can't rename accounts.
 
 The `--beforemap` and `--aftermap` options allow SQL scripts to run immediately before
 and after the map phase without having to break the workflow into separate commands.
-This is the preferred way to preprocess or post-process transactions when using `run`
+This is the preferred way to preprocess or post-process transactions when using `run`,
 or `map` as a single step.
+
+The `preview` command is meant to be run between map and emit. You may run the steps individually (ingest, map, preview, emit), or use the --confirm option to run preview before emit (including run).
 
 While other CSV export sources are not directly supported, you can write a script to remap the fields for ingestion or just import into the table, and then use the map and emit stages to complete your export. If translating other CSV sources be aware that Tiller currently only provides it's data in the US 'MM/DD/YYYY' format, this program can also accept dates in ISO 8601 'YYYY-MM-DD'. Data is written into the SQLite database using the ISO 8601 format.
 
@@ -231,54 +233,12 @@ While other CSV export sources are not directly supported, you can write a scrip
 
 `Finance::Tiller2QIF` is primarily a CLI tool; the public functions exist to
 support the command dispatcher. Programmatic users will likely use this module
-as a starting point and call the sub-modules directly (`Finance::Tiller2QIF::ReadCSV`,
-`Finance::Tiller2QIF::Map`, `Finance::Tiller2QIF::WriteQIF`) for finer control.
+as example code and call the sub-modules directly (`Finance::Tiller2QIF::ReadCSV`,
+`Finance::Tiller2QIF::Map`, `Finance::Tiller2QIF::WriteQIF`).
 
-Note that all functions accept `db_path` as the database parameter. The CLI
+Note that all functions expect `db_path` as the database parameter. The CLI
 normalises the `--db` option to `db_path` internally; programmatic callers
 should use `db_path` directly.
-
-## run
-
-    Finance::Tiller2QIF::run(
-      input     => 'export.csv',
-      db_path   => 'tiller.sqlite3',
-      mapfile   => 'mapping.txt',     # optional
-      beforemap => 'pre.sql',         # optional
-      aftermap  => 'post.sql',        # optional
-      output    => 'import.qif',
-    );
-
-Convenience wrapper that calls `ingest`, `apply_map`, and `emit` in sequence
-with the same options hash.
-
-## ingest
-
-    Finance::Tiller2QIF::ingest( input => 'export.csv', db_path => 'tiller.sqlite3' );
-
-Parses the Tiller CSV export and loads rows into the SQLite database.
-Returns the number of new rows inserted.
-
-## apply\_map
-
-    Finance::Tiller2QIF::apply_map(
-      db_path   => 'tiller.sqlite3',
-      mapfile   => 'mapping.txt',  # optional
-      beforemap => 'pre.sql',      # optional — runs before map rules
-      aftermap  => 'post.sql',     # optional — runs after map rules
-    );
-
-Applies category mapping rules to unexported transactions. If `mapfile` is
-omitted, transactions pass through unchanged. `beforemap` and `aftermap`
-are paths to SQL scripts executed immediately before and after the mapping
-phase respectively; each may contain multiple semicolon-terminated statements.
-
-## emit
-
-    Finance::Tiller2QIF::emit( db_path => 'tiller.sqlite3', output => 'import.qif' );
-
-Writes unexported transactions from the database to a QIF file and marks
-them as exported.
 
 # AUTHOR
 
