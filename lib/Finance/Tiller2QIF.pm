@@ -40,6 +40,10 @@ sub emit (%options) {
     $options{verbose} );
 }
 
+sub preview (%options) {
+  Finance::Tiller2QIF::WriteQIF::Preview( $options{db_path}, $options{verbose} );
+}
+
 sub run (%options) {
   ingest(%options);
   apply_map(%options);
@@ -66,7 +70,7 @@ sub _clean_checkpoints($file) {
 # ---------------------------------------------------------------------------
 
 my $VALID_COMMANDS = join '|',
-  qw(run ingest map emit newdb newconfig checkconfig clean version);
+  qw(run ingest map emit preview newdb newconfig checkconfig clean version);
 
 my $hlpmsg = <<'END_USAGE';
 tiller2qif — Convert Tiller Money CSV exports to QIF format.
@@ -77,7 +81,7 @@ GnuCash, KMyMoney, Quicken, HomeBank, and similar programs.
 
 Usage: tiller2qif <command> %o
 
-Commands: run | ingest | map | emit | newdb | newconfig | checkconfig | version
+Commands: run | ingest | map | emit | preview | newdb | newconfig | checkconfig | version
 
 For the full manual: perldoc Finance::Tiller2QIF
 END_USAGE
@@ -220,8 +224,13 @@ sub run_cli {
     my $changed = emit(%options);
     say "QIF written: ${\ $options{output}}, ${changed} records emitted!";
   }
+
+  if ( $cmd eq 'preview' ) {
+    my $count = preview(%options);
+    say "${count} transaction(s) pending export.";
+  }
 }
 
 1;
 
-=for Pod::Coverage ingest apply_map emit run run_cli
+=for Pod::Coverage ingest apply_map emit preview run run_cli

@@ -185,5 +185,75 @@ subtest wildcard_on_field => sub {
   $db->disconnect;
 };
 
+subtest rule_ordering_specific_before_broad => sub {
+  my $insert = q{
+    INSERT INTO transactions
+    (id, account, date, amount, payee, memo, category, mapped_category, check_number, skipped, exported)
+    VALUES
+    ('TX001', 'Liabilities:CreditCard1', '2026-05-03', -9.24,  'Wawa x 1234 Anytown PA', 'WAWA XXXX 1234 ANYTOWN PA',  'Groceries', '', '', 0, 0),
+    ('TX002', 'Liabilities:CreditCard2', '2026-05-02', -24.08, 'Wawa x x-x-5678 PA',     'WAWA XXXX XXX-XXX-5678 PA',  'Groceries', '', '', 0, 0),
+    ('TX003', 'Liabilities:CreditCard1', '2026-05-01', -15.00, 'Corner Market',           'CORNER MARKET 999',          'Groceries', '', '', 0, 0)
+    ;
+  };
+
+  my $dbfile1  = uniqfile( 'map_order_correct', 'sqlite3' );
+  my $mapfile1 = uniqfile( 'map_order_correct', 'map' );
+  my $db1      = freshdb($dbfile1);
+  $db1->query($insert);
+  freshmap( $mapfile1,
+    'payee    | Wawa      | blank',
+    'category | Groceries | Expenses:Groceries',
+    'default  | source',
+  );
+  Finance::Tiller2QIF::Map::Map({ db_path => $dbfile1, mapfile => $mapfile1 });
+  my %tx1 = map { $_->{id} => $_ }
+    $db1->select( 'transactions', [qw(id mapped_category)] )->hashes->@*;
+  is( $tx1{TX001}{mapped_category}, '',                  'correct order: Wawa payee rule fires before broad category rule' );
+  is( $tx1{TX002}{mapped_category}, '',                  'correct order: second Wawa transaction also blanked' );
+  is( $tx1{TX003}{mapped_category}, 'Expenses:Groceries','correct order: non-Wawa grocery maps to Expenses:Groceries' );
+  $db1->disconnect;
+
+  my $dbfile2  = uniqfile( 'map_order_wrong', 'sqlite3' );
+  my $mapfile2 = uniqfile( 'map_order_wrong', 'map' );
+  my $db2      = freshdb($dbfile2);
+  $db2->query($insert);
+  freshmap( $mapfile2,
+    'category | Groceries | Expenses:Groceries',
+    'payee    | Wawa      | blank',
+    'default  | source',
+  );
+  Finance::Tiller2QIF::Map::Map({ db_path => $dbfile2, mapfile => $mapfile2 });
+  my %tx2 = map { $_->{id} => $_ }
+    $db2->select( 'transactions', [qw(id mapped_category)] )->hashes->@*;
+  is( $tx2{TX001}{mapped_category}, 'Expenses:Groceries', 'wrong order: broad category rule shadows specific payee rule' );
+  is( $tx2{TX002}{mapped_category}, 'Expenses:Groceries', 'wrong order: second Wawa also captured by category rule' );
+  is( $tx2{TX003}{mapped_category}, 'Expenses:Groceries', 'wrong order: non-Wawa grocery still maps correctly' );
+  $db2->disconnect;
+};
+
+subtest payee_case_insensitive_substring => sub {
+  my $dbfile  = uniqfile( 'map_payee_ci', 'sqlite3' );
+  my $mapfile = uniqfile( 'map_payee_ci', 'map' );
+  my $db      = freshdb($dbfile);
+  $db->query(q{
+    INSERT INTO transactions
+    (id, account, date, amount, payee, memo, category, mapped_category, check_number, skipped, exported)
+    VALUES
+    ('TX001', 'Liabilities:CreditCard1', '2026-05-03', -9.24,  'Wawa x 1234 Anytown PA',    'WAWA XXXX 1234 ANYTOWN PA',       'Groceries', '', '', 0, 0),
+    ('TX002', 'Liabilities:CreditCard2', '2026-05-02', -24.08, 'Wawa x x-x-5678 PA',        'WAWA XXXX XXX-XXX-5678 PA',       'Groceries', '', '', 0, 0)
+    ;
+  });
+  freshmap( $mapfile,
+    'payee | Wawa          | blank',
+    'default | source',
+  );
+  Finance::Tiller2QIF::Map::Map({ db_path => $dbfile, mapfile => $mapfile });
+  my %tx = map { $_->{id} => $_ }
+    $db->select( 'transactions', [qw(id mapped_category)] )->hashes->@*;
+  is( $tx{TX001}{mapped_category}, '', 'payee "Wawa x 1234 Anytown PA" matched by bare pattern Wawa (case-insensitive)' );
+  is( $tx{TX002}{mapped_category}, '', 'payee "Wawa x x-x-5678 PA" matched by bare pattern Wawa (case-insensitive)' );
+  $db->disconnect;
+};
+
 done_testing();
 unlink glob "t/tmp/t2q_*" if test_pass();

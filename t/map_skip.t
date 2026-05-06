@@ -58,7 +58,7 @@ subtest skip_default => sub {
   $db->disconnect;
 };
 
-subtest skip_rerun => sub {
+subtest skip_is_terminal => sub {
   my $dbfile  = uniqfile( 'map_skiprerun', 'sqlite3' );
   my $csvfile = uniqfile( 'map_skiprerun', 'csv' );
   my $mapfile = uniqfile( 'map_skiprerun', 'map' );
@@ -67,15 +67,46 @@ subtest skip_rerun => sub {
   freshmap( $mapfile, 'category | Credit Card Payments | skip', 'default | source' );
   Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
   Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
-  is( $db->select( 'transactions', ['skipped'], { id => 1 } )->hash->{skipped},
-    1, 'Transaction skipped after first map run' );
+  my $tx = $db->select( 'transactions', [qw(skipped exported)], { id => 1 } )->hash;
+  is( $tx->{skipped},  1, 'Transaction skipped after map run' );
+  is( $tx->{exported}, 1, 'Skipped transaction marked exported so it is excluded from future map runs' );
 
-  # Rewrite map file without the skip rule
+  # Re-running map without the skip rule does not reprocess the transaction
   path($mapfile)->spew_utf8( "default | source\n" );
   Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
-  is( $db->select( 'transactions', ['skipped'], { id => 1 } )->hash->{skipped},
-    0, 'Re-run without skip rule resets skipped to 0' );
+  $tx = $db->select( 'transactions', [qw(skipped exported)], { id => 1 } )->hash;
+  is( $tx->{skipped},  1, 'Skipped transaction not reprocessed on re-run (exported = 1 excludes it)' );
 
+  $db->disconnect;
+};
+
+subtest account_filtered_skip => sub {
+  my $dbfile  = uniqfile( 'map_acct_skip', 'sqlite3' );
+  my $mapfile = uniqfile( 'map_acct_skip', 'map' );
+  my $db      = freshdb($dbfile);
+  $db->query(q{
+    INSERT INTO transactions
+    (id, account, date, amount, payee, memo, category, mapped_category, check_number, skipped, exported)
+    VALUES
+    ('TX001', 'FMFCU Home Equity',  '2026-05-01', -1216.20, 'Transfer From 7658', 'Transfer From 7658', 'Transfer', '', '', 0, 0),
+    ('TX002', 'Liabilities:Amex',   '2026-05-01',  -842.00, 'Transfer From 1234', 'Transfer From 1234', 'Transfer', '', '', 0, 0),
+    ('TX003', 'FMFCU Home Equity',  '2026-05-01',   -95.00, 'Corner Market',      'CORNER MARKET 999',  'Groceries','', '', 0, 0)
+    ;
+  });
+  freshmap( $mapfile,
+    '[CapitalOne|Amex|FMFCU Home Equity] category | Transfer | skip',
+    'default | source',
+  );
+  Finance::Tiller2QIF::Map::Map({ db_path => $dbfile, mapfile => $mapfile });
+  my %tx = map { $_->{id} => $_ }
+    $db->select( 'transactions', [qw(id skipped mapped_category exported)] )->hashes->@*;
+  is( $tx{TX001}{skipped},         1,     'FMFCU Home Equity Transfer skipped by account-filtered rule' );
+  is( $tx{TX001}{mapped_category}, undef, 'Skipped transaction has no mapped_category' );
+  is( $tx{TX001}{exported},        1,     'Skipped transaction exported flag set to 1' );
+  is( $tx{TX002}{skipped},         1,     'Amex Transfer also skipped by same account-filtered rule' );
+  is( $tx{TX002}{exported},        1,     'Second skipped transaction exported flag set to 1' );
+  is( $tx{TX003}{skipped},         0,     'FMFCU Home Equity non-Transfer transaction is not skipped' );
+  is( $tx{TX003}{exported},        0,     'Non-skipped transaction exported flag remains 0' );
   $db->disconnect;
 };
 
