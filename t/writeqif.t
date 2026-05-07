@@ -170,8 +170,8 @@ subtest preview => sub {
     INSERT INTO transactions
     (id, account, date, amount, payee, memo, category, mapped_category, check_number, skipped, exported)
     VALUES
-    ('P1', 'Liabilities:CreditCard', '2026-05-01', -42.00, 'Corner Market', 'CORNER MARKET MEMO', 'Groceries',    'Expenses:Groceries', '', 0, 0),
-    ('P2', 'Liabilities:CreditCard', '2026-05-02',  -9.99, 'Streaming Co',  'STREAMING CO MEMO',  'Entertainment','Entertainment',      '', 0, 0)
+    ('P1', 'Liabilities:CreditCard', '2026-05-01', -42.00, 'Corner Market',                    'CORNER MARKET MEMO', 'Groceries',    'Expenses:Groceries', '', 0, 0),
+    ('P2', 'Liabilities:CreditCard', '2026-05-02',  -9.99, 'A Very Long Payee Name Over Twenty', 'STREAMING CO MEMO',  'Entertainment','Entertainment',      '', 0, 0)
     ;
   });
 
@@ -183,6 +183,7 @@ subtest preview => sub {
 
   is( $count, 2, 'Preview returns correct transaction count' );
   ok( length($output) > 0, 'Preview produces output' );
+  unlike( $output, qr/A Very Long Payee Name Over Twenty/, 'Long payee truncated in output' );
 
   $db->disconnect;
 };

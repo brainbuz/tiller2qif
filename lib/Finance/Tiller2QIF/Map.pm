@@ -69,7 +69,7 @@ sub _parse_line ($line) {
   my $field   = shift @parts;
   my $dest    = pop @parts;
   my $pattern = $parts[0] // '';
-  return ( $field, $pattern, $dest // '' );
+  return ( $field, $pattern, $dest );
 }
 
 sub _parse_mapping_file ($file) {
@@ -141,7 +141,7 @@ sub _run_sql_file ( $dbmojo, $file, $verbose ) {
   for my $line ( split /\n/, $sql ) {
     $current .= $line . "\n";
     if ( $line =~ /;\s*$/ ) {
-      push @statements, $current if $current =~ /\S/;
+      push @statements, $current;
       $current = '';
     }
   }
@@ -187,7 +187,7 @@ sub Map ( $options ) {
 
     MAPRULE: for my $rule (@$rules) {
       if ( defined $rule->{account_filter} ) {
-        next MAPRULE unless ( $tx->{account} // '' ) =~ $rule->{account_filter};
+        next MAPRULE unless $tx->{account} =~ $rule->{account_filter};
       }
       my $val = $tx->{ $rule->{field} };
       next MAPRULE unless defined $val;

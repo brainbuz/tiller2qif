@@ -15,7 +15,7 @@ use Getopt::Long::Descriptive;
 use Cpanel::JSON::XS;
 use Finance::Tiller2QIF::ReadCSV;
 use Finance::Tiller2QIF::Map;
-use Finance::Tiller2QIF::Util;
+use Finance::Tiller2QIF::Util qw/vPrint/;
 use Finance::Tiller2QIF::WriteQIF;
 use Time::Piece;
 # use Data::Printer;
@@ -115,16 +115,18 @@ sub run_cli {
       [ 'mapfile|f=s', "Category mapping file (map, run — optional)" ],
       [ 'beforemap=s', "sql script to run prior to map" ],
       [ 'aftermap=s',  "sql script to run after map" ],
+      [ 'confirm',     "run preview before emit and confirm export"],
       [ 'verbose|v',   "Print detailed progress information" ],
       [],
       [ 'help|h', "Print usage and exit", { shortcircuit => 1 } ],
     );
   };
+  # uncoverable branch true
   die $@, $badcmdhelp if $@;
 
   if ( $opt->help ) {
     say $usage;
-    exit 0;
+    return;
   }
 
   if ( !$cmd ) {
@@ -144,12 +146,13 @@ sub run_cli {
     # uncoverable branch false
     my $v = do { no strict 'vars'; $VERSION // 'unversioned' };
     say "Tiller2QIF VERSION: ${v}";
-    exit 0;
+    return;
   }
 
   if ( $cmd eq 'newconfig' ) {
     die "newconfig requires --config\n" unless $opt->config;
-    say "Creating config file: " . $opt->config if $opt->verbose;
+    # say "Creating config file: " . $opt->config if $opt->verbose;
+    vPrint( $opt->verbose, "Creating config file: " . $opt->config );
     Finance::Tiller2QIF::Util::InitConfig( $opt->config );
     say "Config file created: " . $opt->config;
     return;
@@ -171,7 +174,8 @@ sub run_cli {
 
   if ( $cmd eq 'newdb' ) {
     die "newdb requires --db\n" unless $options{db_path};
-    say "Creating database: " . $options{db_path} if $opt->verbose;
+    vPrint( $opt->verbose, "Creating database: " . $options{db_path} );
+    # say "Creating database: " . $options{db_path} if $opt->verbose;
     Finance::Tiller2QIF::Util::InitDB( $options{db_path} );
     say "Database initialized: " . $options{db_path};
     return;
@@ -203,7 +207,8 @@ sub run_cli {
   }
 
   if ( $cmd =~ /^(?:ingest|run)$/ ) {
-    say "Ingesting CSV: " . $options{input} if $opt->verbose;
+    vPrint ( $opt->verbose, "Ingesting CSV: " . $options{input} );
+
     my $newitems = ingest(%options);
     say "Ingested: ${newitems} transactions from: " . $options{input};
   }
@@ -220,7 +225,17 @@ sub run_cli {
   }
 
   if ( $cmd =~ /^(?:emit|run)$/ ) {
-    say "Writing QIF: " . $options{output} if $opt->verbose;
+    if ( $opt->confirm ) {
+      my $count = preview(%options);
+      say "${count} transaction(s) pending export.";
+      say '?'x60;
+      print "Complete export? Y/n: ";
+      my $response = <STDIN>;
+      # uncoverable branch true
+      # uncoverable branch false
+      return unless $response =~ /^y/i;
+    }
+    vPrint( $opt->verbose, "Writing QIF: " . $options{output} );
     my $changed = emit(%options);
     say "QIF written: ${\ $options{output}}, ${changed} records emitted!";
   }

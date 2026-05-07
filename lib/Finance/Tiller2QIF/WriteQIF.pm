@@ -98,19 +98,19 @@ sub Preview ( $db_path, $verbose=0 ) {
     )->hashes()->@*;
 
     for my $tx (@tx) {
-      my $orig    = $tx->{category}        // '';
-      my $mapped  = $tx->{mapped_category} // $orig;
-      my $cat     = $mapped ne $orig
-                  ? '[' . $orig . '] ' . $mapped
-                  : $mapped;
+      my $orig   = $tx->{category};
+      my $mapped = $tx->{mapped_category} // $orig;
+      my $cat    = $mapped ne $orig
+                 ? '[' . $orig . '] ' . $mapped
+                 : $mapped;
 
       push @rows, {
-        account => _trunc( $account,        30 ),
-        date    => $tx->{date}              // '',
+        account => _trunc( $account,          30 ),
+        date    => $tx->{date},
         amount  => sprintf( "%.2f", $tx->{amount} ),
-        payee   => _trunc( $tx->{payee}     // '', 20 ),
-        cat     => _trunc( $cat,            30 ),
-        memo    => _trunc( $tx->{memo}      // '', 30 ),
+        payee   => _trunc( $tx->{payee},      20 ),
+        cat     => _trunc( $cat,              30 ),
+        memo    => _trunc( $tx->{memo},       30 ),
       };
     }
   }

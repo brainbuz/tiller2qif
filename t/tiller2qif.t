@@ -318,6 +318,87 @@ subtest cli_clean => sub {
   ok( -e $db_path,  'clean left the original database intact' );
 };
 
+subtest cli_version => sub {
+  local @ARGV = ('version');
+  my $out = '';
+  ok( lives { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
+    'version command returns normally' );
+  like( $out, qr/VERSION/, 'version command prints VERSION' );
+};
+
+subtest cli_help => sub {
+  local @ARGV = ('--help');
+  my $out = '';
+  ok( lives { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
+    '--help returns normally' );
+  like( $out, qr/tiller2qif/, '--help prints usage' );
+};
+
+subtest cli_config => sub {
+  my $db_path = uniqfile( 'cli_cfg', 'sqlite3' );
+  my $csvfile = uniqfile( 'cli_cfg', 'csv' );
+  my $qiffile = uniqfile( 'cli_cfg', 'qif' );
+  my $cfgfile = uniqfile( 'cli_cfg', 'json' );
+  freshdb($db_path)->disconnect;
+  freshcsv( $csvfile, '04/25/2026,1,Checking,10.00,Test,Test,Food' );
+  Finance::Tiller2QIF::run_cli() if 0; # load module
+  path($cfgfile)->spew_utf8( qq|{ "db": "$db_path", "input": "$csvfile", "output": "$qiffile" }| );
+  local @ARGV = ( 'ingest', '--config', $cfgfile );
+  ok( lives { Finance::Tiller2QIF::run_cli() }, '--config loads options from file' );
+  my $db = Mojo::SQLite->new($db_path)->options({ sqlite_unicode => 1 })->db;
+  is( $db->select('transactions', ['id'])->arrays->@*, 1, '--config ingest loaded a row' );
+  $db->disconnect;
+};
+
+subtest cli_preview => sub {
+  my $db_path = uniqfile( 'cli_preview', 'sqlite3' );
+  my $csvfile = uniqfile( 'cli_preview', 'csv' );
+  freshdb($db_path)->disconnect;
+  freshcsv( $csvfile, '04/25/2026,1,Checking,10.00,Test,Test,Food' );
+  Finance::Tiller2QIF::ingest( input => $csvfile, db_path => $db_path );
+  local @ARGV = ( 'preview', '--db', $db_path );
+  my $out = '';
+  ok( lives { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
+    'preview command returns normally' );
+  like( $out, qr/pending export/, 'preview output mentions pending export' );
+};
+
+subtest cli_confirm_yes => sub {
+  my $db_path = uniqfile( 'cli_confirm_y', 'sqlite3' );
+  my $csvfile = uniqfile( 'cli_confirm_y', 'csv' );
+  my $qiffile = uniqfile( 'cli_confirm_y', 'qif' );
+  freshdb($db_path)->disconnect;
+  freshcsv( $csvfile, '04/25/2026,1,Checking,10.00,Test,Test,Food' );
+  Finance::Tiller2QIF::ingest( input => $csvfile, db_path => $db_path );
+
+  local @ARGV = ( 'emit', '--db', $db_path, '--output', $qiffile, '--confirm' );
+  my $stdin = "y\n";
+  open( my $fh, '<', \$stdin ) or die $!;
+  local *STDIN = $fh;
+  my $out = '';
+  ok( lives { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
+    '--confirm with "y" proceeds to emit' );
+  ok( -e $qiffile, '--confirm "y" produced QIF file' );
+};
+
+subtest cli_confirm_no => sub {
+  my $db_path = uniqfile( 'cli_confirm_n', 'sqlite3' );
+  my $csvfile = uniqfile( 'cli_confirm_n', 'csv' );
+  my $qiffile = uniqfile( 'cli_confirm_n', 'qif' );
+  freshdb($db_path)->disconnect;
+  freshcsv( $csvfile, '04/25/2026,1,Checking,10.00,Test,Test,Food' );
+  Finance::Tiller2QIF::ingest( input => $csvfile, db_path => $db_path );
+
+  local @ARGV = ( 'emit', '--db', $db_path, '--output', $qiffile, '--confirm' );
+  my $stdin = "n\n";
+  open( my $fh, '<', \$stdin ) or die $!;
+  local *STDIN = $fh;
+  my $out = '';
+  ok( lives { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
+    '--confirm with "n" returns without error' );
+  ok( !-e $qiffile, '--confirm "n" did not produce QIF file' );
+};
+
 done_testing();
 
 unlink glob "t/tmp/t2q_*" if test_pass();
