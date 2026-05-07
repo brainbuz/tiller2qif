@@ -163,5 +163,56 @@ subtest skipped_excluded => sub {
   unlink $dbfile, $csvfile, $mapfile, $qiffile;
 };
 
+subtest preview => sub {
+  my $dbfile  = uniqfile( 'wq_preview', 'sqlite3' );
+  my $mapfile = uniqfile( 'wq_preview', 'map' );
+  my $db      = freshdb($dbfile);
+  $db->query(q{
+    INSERT INTO transactions
+    (id, account, date, amount, payee, memo, category, mapped_category, check_number, skipped, exported)
+    VALUES
+    ('P1', 'Liabilities:CreditCard', '2026-05-01', -42.00, 'Corner Market Long Name Here', 'CORNER MARKET MEMO TEXT', 'Groceries', 'Expenses:Groceries', '', 0, 0),
+    ('P2', 'Liabilities:CreditCard', '2026-05-02', -9.99,  'Streaming Co',                 'STREAMING CO MEMO',       'Entertainment', 'Entertainment',     '', 0, 0),
+    ('P3', 'Liabilities:CreditCard', '2026-05-03', -1234567.89, 'Wide Amount',              'MEMO',                    'Shopping', 'Expenses:Shopping',    '', 0, 0)
+    ;
+  });
+
+  my $output = '';
+  open( my $fh, '>', \$output ) or die $!;
+  my $old = select $fh;
+  my $count = Finance::Tiller2QIF::WriteQIF::Preview($dbfile);
+  select $old;
+
+  is( $count, 3, 'Preview returns correct transaction count' );
+
+  my @lines = split /\n/, $output;
+
+  # header line and divider present
+  like( $lines[0], qr/Date.*Amount.*Account.*Payee/, 'Header line present' );
+  like( $lines[2], qr/^-+$/, 'Divider line present' );
+
+  # pipes present on data lines
+  like( $lines[3], qr/\|.*\|.*\|/, 'Line 1 of row has pipe separators' );
+  like( $lines[4], qr/\|/,         'Line 2 of row has pipe separator' );
+
+  # payee truncated to 20 chars
+  my ($payee_col) = $lines[3] =~ /\|\s*(.*?)\s*$/;
+  ok( length($payee_col) <= 20, 'Payee truncated to 20 chars' );
+
+  # category with original shown in brackets when mapped differs
+  like( $lines[4], qr/\[Groceries\].*Expenses:Groceries/, 'Original category shown in brackets before mapped' );
+
+  # no brackets when category unchanged
+  my $unchanged_line = (grep { /Entertainment/ } @lines)[0];
+  unlike( $unchanged_line, qr/\[/, 'No brackets when category unchanged' );
+
+  # no line exceeds 80 chars
+  for my $line (@lines) {
+    ok( length($line) <= 80, "Line within 80 chars: '$line'" );
+  }
+
+  $db->disconnect;
+};
+
 done_testing();
 unlink glob "t/tmp/*" if test_pass();

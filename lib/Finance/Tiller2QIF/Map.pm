@@ -124,6 +124,7 @@ sub _parse_mapping_file ($file) {
     push @rules, {
       field          => $field,
       pattern        => $re,
+      pattern_str    => $pattern,
       destination    => ( $is_skip ? undef : _resolve_dest($dest) ),
       skip           => $is_skip,
       account_filter => $acct_re,
@@ -193,7 +194,7 @@ sub Map ( $options ) {
       if ( $val =~ $rule->{pattern} ) {
         $mc   = $rule->{destination};
         $skip = $rule->{skip};
-        $matched_rule = "$rule->{field} ~ /$rule->{pattern}/ => " . ($rule->{skip} ? 'skip' : ($mc // 'source'));
+        $matched_rule = "$rule->{field} ~ /$rule->{pattern_str}/ => " . ($rule->{skip} ? 'skip' : ($mc // 'source'));
         last MAPRULE;
       }
     }

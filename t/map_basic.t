@@ -103,5 +103,22 @@ subtest first_match_wins => sub {
   $db->disconnect;
 };
 
+subtest source_destination => sub {
+  my $dbfile  = uniqfile( 'map_source', 'sqlite3' );
+  my $csvfile = uniqfile( 'map_source', 'csv' );
+  my $mapfile = uniqfile( 'map_source', 'map' );
+  my $db      = freshdb($dbfile);
+  freshcsv( $csvfile, '04/25/2026,8,Checking,10.00,Coffee,Cafe,Food' );
+  freshmap( $mapfile,
+    'category | Food | source',
+    'default | blank',
+  );
+  Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
+  Finance::Tiller2QIF::Map::Map({db_path => $dbfile, mapfile => $mapfile});
+  my $tx = $db->select( 'transactions', ['mapped_category'], { id => 8 } )->hash;
+  is( $tx->{mapped_category}, undef, 'source destination sets mapped_category to NULL' );
+  $db->disconnect;
+};
+
 done_testing();
 unlink glob "t/tmp/t2q_*" if test_pass();

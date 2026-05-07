@@ -82,5 +82,15 @@ subtest 'invalid pattern regex dies' => sub {
     'Invalid pattern regex triggers error');
 };
 
+subtest 'bare alternation without slash-quoting dies' => sub {
+  my $mapfile = uniqfile('bare_alt', 'map');
+  freshmap($mapfile,
+    'payee | Foo|Bar | Expenses:Other',
+    'default | source',
+  );
+  ok(dies { Finance::Tiller2QIF::Map::Map({db_path => 'dummy.db', mapfile => $mapfile}) },
+    'Bare pipe alternation without slash-quoting triggers error');
+};
+
 done_testing();
 unlink glob "$tmpdir/maperr_*" if test_pass();
