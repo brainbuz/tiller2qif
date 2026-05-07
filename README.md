@@ -83,6 +83,7 @@ tiller2qif works with Strawberry Perl, after installing Strawberry Perl, install
         tiller2qif map --db tiller.sqlite3 [--mapfile mapping.txt] \
                        [--beforemap before.sql] [--aftermap after.sql]
 
+- **preview** -- preview the records that would be emitted
 - **emit** -- write QIF from the database
 
         tiller2qif emit --db tiller.sqlite3 --output import.qif
@@ -158,6 +159,11 @@ naturally: `[Checking|Savings]`. Omit to match all accounts.
 
         payee | Starbucks | Expenses:Coffee
 
+    To allow setting a category with only an AccountFilter, use `*` as the entire pattern to match against any field value:
+
+        # Without an account filter all transactions will match!
+        [AccountFilter] any_matchable_field | * | new_category
+
     To use regex alternation (matching either of several values), enclose the
     pattern in forward slashes:
 
@@ -222,8 +228,10 @@ You can write SQL scripts or use an interactive sqlite3 client to make changes b
 
 The `--beforemap` and `--aftermap` options allow SQL scripts to run immediately before
 and after the map phase without having to break the workflow into separate commands.
-This is the preferred way to preprocess or post-process transactions when using `run`
+This is the preferred way to preprocess or post-process transactions when using `run`,
 or `map` as a single step.
+
+The `preview` command is meant to be run after map. It requires running the steps individually (ingest, map, preview, emit).
 
 While other CSV export sources are not directly supported, you can write a script to remap the fields for ingestion or just import into the table, and then use the map and emit stages to complete your export. If translating other CSV sources be aware that Tiller currently only provides it's data in the US 'MM/DD/YYYY' format, this program can also accept dates in ISO 8601 'YYYY-MM-DD'. Data is written into the SQLite database using the ISO 8601 format.
 
