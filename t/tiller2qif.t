@@ -29,10 +29,10 @@ subtest api_ingest => sub {
     '04/25/2026,1,Checking,100.00,Deposit,Paycheck,Income',
     '04/25/2026,2,Checking,-50.00,Coffee,Cafe,Food',
   );
-  ok( lives { Finance::Tiller2QIF::ingest( input => $csvfile, db_path => $db_path ) },
-    'ingest() lives' );
+  ok( lives { Finance::Tiller2QIF::_ingest( input => $csvfile, db_path => $db_path ) },
+    '_ingest() lives' );
   is( $dbmojo->select( 'transactions', ['id'] )->arrays->@*, 2,
-    'ingest() loaded two rows' );
+    '_ingest() loaded two rows' );
   $dbmojo->disconnect;
 };
 
@@ -46,11 +46,11 @@ subtest api_apply_map => sub {
     'category | Income | Income:Salary',
     'default | source',
   );
-  Finance::Tiller2QIF::ingest( input => $csvfile, db_path => $db_path );
-  ok( lives { Finance::Tiller2QIF::apply_map( db_path => $db_path, mapfile => $mapfile ) },
-    'apply_map() lives' );
+  Finance::Tiller2QIF::_ingest( input => $csvfile, db_path => $db_path );
+  ok( lives { Finance::Tiller2QIF::_apply_map( db_path => $db_path, mapfile => $mapfile ) },
+    '_apply_map() lives' );
   is( $dbmojo->select( 'transactions', ['mapped_category'], { id => 1 } )->hash->{mapped_category},
-    'Income:Salary', 'apply_map() wrote mapped_category' );
+    'Income:Salary', '_apply_map() wrote mapped_category' );
   $dbmojo->disconnect;
 };
 
@@ -60,10 +60,10 @@ subtest api_emit => sub {
   my $qiffile = uniqfile( 'emit', 'qif' );
   my $dbmojo  = freshdb($db_path);
   freshcsv( $csvfile, '04/25/2026,1,Checking,100.00,Deposit,Paycheck,Income' );
-  Finance::Tiller2QIF::ingest( input => $csvfile, db_path => $db_path );
-  ok( lives { Finance::Tiller2QIF::emit( db_path => $db_path, output => $qiffile ) },
-    'emit() lives' );
-  ok( -e $qiffile, 'emit() created QIF file' );
+  Finance::Tiller2QIF::_ingest( input => $csvfile, db_path => $db_path );
+  ok( lives { Finance::Tiller2QIF::_emit( db_path => $db_path, output => $qiffile ) },
+    '_emit() lives' );
+  ok( -e $qiffile, '_emit() created QIF file' );
   like( path($qiffile)->slurp_utf8, qr/PDeposit/, 'emitted QIF contains payee' );
   $dbmojo->disconnect;
 };
@@ -80,14 +80,14 @@ subtest api_run => sub {
     'default | blank',
   );
   ok( lives {
-    Finance::Tiller2QIF::run(
+    Finance::Tiller2QIF::_run(
       input   => $csvfile,
       db_path => $db_path,
       mapfile => $mapfile,
       output  => $qiffile,
     )
-  }, 'run() lives' );
-  like( path($qiffile)->slurp_utf8, qr/LIncome:Salary/, 'run() QIF has mapped category' );
+  }, '_run() lives' );
+  like( path($qiffile)->slurp_utf8, qr/LIncome:Salary/, '_run() QIF has mapped category' );
 };
 
 # ---------------------------------------------------------------------------
@@ -260,7 +260,7 @@ subtest cli_emit_verbose_checkconfig => sub {
   my $qiffile = uniqfile( 'cli_emitv', 'qif' );
   freshdb($db_path)->disconnect;
   freshcsv( $csvfile, '04/25/2026,1,Checking,20.00,Test,Test,Food' );
-  Finance::Tiller2QIF::ingest( input => $csvfile, db_path => $db_path );
+  Finance::Tiller2QIF::_ingest( input => $csvfile, db_path => $db_path );
 
   # --verbose on emit reaches line 162 via $opt->verbose (non-run command)
   local @ARGV = ( 'emit', '--db', $db_path, '--output', $qiffile, '--verbose' );
@@ -355,7 +355,7 @@ subtest cli_preview => sub {
   my $csvfile = uniqfile( 'cli_preview', 'csv' );
   freshdb($db_path)->disconnect;
   freshcsv( $csvfile, '04/25/2026,1,Checking,10.00,Test,Test,Food' );
-  Finance::Tiller2QIF::ingest( input => $csvfile, db_path => $db_path );
+  Finance::Tiller2QIF::_ingest( input => $csvfile, db_path => $db_path );
   local @ARGV = ( 'preview', '--db', $db_path );
   my $out = '';
   ok( lives { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
@@ -369,7 +369,7 @@ subtest cli_confirm_yes => sub {
   my $qiffile = uniqfile( 'cli_confirm_y', 'qif' );
   freshdb($db_path)->disconnect;
   freshcsv( $csvfile, '04/25/2026,1,Checking,10.00,Test,Test,Food' );
-  Finance::Tiller2QIF::ingest( input => $csvfile, db_path => $db_path );
+  Finance::Tiller2QIF::_ingest( input => $csvfile, db_path => $db_path );
 
   local @ARGV = ( 'emit', '--db', $db_path, '--output', $qiffile, '--confirm' );
   my $stdin = "y\n";
@@ -387,7 +387,7 @@ subtest cli_confirm_no => sub {
   my $qiffile = uniqfile( 'cli_confirm_n', 'qif' );
   freshdb($db_path)->disconnect;
   freshcsv( $csvfile, '04/25/2026,1,Checking,10.00,Test,Test,Food' );
-  Finance::Tiller2QIF::ingest( input => $csvfile, db_path => $db_path );
+  Finance::Tiller2QIF::_ingest( input => $csvfile, db_path => $db_path );
 
   local @ARGV = ( 'emit', '--db', $db_path, '--output', $qiffile, '--confirm' );
   my $stdin = "n\n";

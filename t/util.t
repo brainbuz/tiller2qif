@@ -100,6 +100,18 @@ subtest 'CheckConfig output parent dir not writable' => sub {
     chmod 0755, $locked_dir;
 };
 
+subtest 'CheckConfig output file exists but not writable' => sub {
+    my $readonly_file = "$tmpdir/readonly.qif";
+    path($readonly_file)->spew_utf8("data");
+    chmod 0444, $readonly_file;
+    my $out = capture_stdout {
+        Finance::Tiller2QIF::Util::CheckConfig( output => $readonly_file );
+    };
+    like( $out, qr/Alert/, 'alert when file exists' );
+    like( $out, qr/Problem.*not writable/, 'problem reported when existing file not writable' );
+    chmod 0644, $readonly_file;
+};
+
 subtest 'vPrint verbose true' => sub {
     my $out = capture_stdout { vPrint( 1, 'hello', 'world' ) };
     like( $out, qr/hello/, 'vPrint prints first message when verbose' );

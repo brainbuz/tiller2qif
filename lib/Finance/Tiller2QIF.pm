@@ -26,28 +26,28 @@ use Time::Piece;
 # Public API
 # ---------------------------------------------------------------------------
 
-sub ingest (%options) {
+sub _ingest (%options) {
   Finance::Tiller2QIF::ReadCSV::Ingest( $options{input}, $options{db_path},
     $options{verbose} );
 }
 
-sub apply_map (%options) {
+sub _apply_map (%options) {
   Finance::Tiller2QIF::Map::Map( \%options );
 }
 
-sub emit (%options) {
+sub _emit (%options) {
   Finance::Tiller2QIF::WriteQIF::Emit( $options{db_path}, $options{output},
     $options{verbose} );
 }
 
-sub preview (%options) {
+sub _preview (%options) {
   Finance::Tiller2QIF::WriteQIF::Preview( $options{db_path}, $options{verbose} );
 }
 
-sub run (%options) {
-  ingest(%options);
-  apply_map(%options);
-  emit(%options);
+sub _run (%options) {
+  _ingest(%options);
+  _apply_map(%options);
+  _emit(%options);
 }
 
 sub _checkpoint($file) {
@@ -209,14 +209,14 @@ sub run_cli {
   if ( $cmd =~ /^(?:ingest|run)$/ ) {
     vPrint ( $opt->verbose, "Ingesting CSV: " . $options{input} );
 
-    my $newitems = ingest(%options);
+    my $newitems = _ingest(%options);
     say "Ingested: ${newitems} transactions from: " . $options{input};
   }
 
   if ( $cmd =~ /^(?:map|run)$/ ) {
     if ( $options{mapfile} ) {
       say "Applying mapping: " . $options{mapfile} if $opt->verbose;
-      apply_map(%options);
+      _apply_map(%options);
       say "Mapping applied: " . $options{mapfile};
     }
     else {
@@ -226,7 +226,7 @@ sub run_cli {
 
   if ( $cmd =~ /^(?:emit|run)$/ ) {
     if ( $opt->confirm ) {
-      my $count = preview(%options);
+      my $count = _preview(%options);
       say "${count} transaction(s) pending export.";
       say '?'x60;
       print "Complete export? Y/n: ";
@@ -236,16 +236,16 @@ sub run_cli {
       return unless $response =~ /^y/i;
     }
     vPrint( $opt->verbose, "Writing QIF: " . $options{output} );
-    my $changed = emit(%options);
+    my $changed = _emit(%options);
     say "QIF written: ${\ $options{output}}, ${changed} records emitted!";
   }
 
   if ( $cmd eq 'preview' ) {
-    my $count = preview(%options);
+    my $count = _preview(%options);
     say "${count} transaction(s) pending export.";
   }
 }
 
 1;
 
-=for Pod::Coverage ingest apply_map emit preview run run_cli
+=for Pod::Coverage run_cli

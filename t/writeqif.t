@@ -171,7 +171,8 @@ subtest preview => sub {
     (id, account, date, amount, payee, memo, category, mapped_category, check_number, skipped, exported)
     VALUES
     ('P1', 'Liabilities:CreditCard', '2026-05-01', -42.00, 'Corner Market',                    'CORNER MARKET MEMO', 'Groceries',    'Expenses:Groceries', '', 0, 0),
-    ('P2', 'Liabilities:CreditCard', '2026-05-02',  -9.99, 'A Very Long Payee Name Over Twenty', 'STREAMING CO MEMO',  'Entertainment','Entertainment',      '', 0, 0)
+    ('P2', 'Liabilities:CreditCard', '2026-05-02',  -9.99, 'A Very Long Payee Name Over Twenty', 'STREAMING CO MEMO',  'Entertainment','Entertainment',      '', 0, 0),
+    ('P3', 'Liabilities:CreditCard', '2026-05-03', -10.00, 'Test Unmapped',                    'MEMO',               'Unmapped',     NULL,                  '', 0, 0)
     ;
   });
 
@@ -181,9 +182,10 @@ subtest preview => sub {
   my $count = Finance::Tiller2QIF::WriteQIF::Preview($dbfile);
   select $old;
 
-  is( $count, 2, 'Preview returns correct transaction count' );
+  is( $count, 3, 'Preview returns correct transaction count' );
   ok( length($output) > 0, 'Preview produces output' );
   unlike( $output, qr/A Very Long Payee Name Over Twenty/, 'Long payee truncated in output' );
+  like( $output, qr/Unmapped/, 'Preview shows unmapped category when mapped_category is NULL' );
 
   $db->disconnect;
 };

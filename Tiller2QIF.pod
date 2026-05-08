@@ -17,13 +17,6 @@ Convert Tiller CSV exports to QIF for import into Financial software like GnuCas
 
   # Command-line
   tiller2qif run --input export.csv --db tiller.sqlite3 \
-                 --output import.qif [--mapfile mapping.txt]
-
-  # Programmatic — see PROGRAMMATIC USE below
-  use Finance::Tiller2QIF;
-
-  Finance::Tiller2QIF::run(
-    input   => 'export.csv',
     db_path => 'tiller.sqlite3',
     mapfile => 'mapping.txt',
     output  => 'import.qif',
@@ -117,8 +110,6 @@ tiller2qif works with Strawberry Perl, after installing Strawberry Perl, install
 
 =item B<clean> -- remove checkpoint copies of the database
 
-=item B<confirm> -- run preview before emit (including on run) and prompt for confirmation to continue.
-
 Deletes all timestamped checkpoint files created by C<--checkpoint> or C<run>,
 leaving the live database intact.
 
@@ -160,6 +151,8 @@ fire.
 =item B<--aftermap> Path to a SQL script to execute against the database immediately
 after the mapping rules are applied.  Useful for post-processing the mapped results —
 for example, marking or transforming rows based on what the map phase produced.
+
+=item B<confirm> -- run preview before emit (including on run) and prompt for confirmation to continue.
 
 =back
 
@@ -265,7 +258,7 @@ C<default | source>.
 
 =head1 Advanced Use
 
-You can write SQL scripts or use an interactive sqlite3 client to make changes between steps. For example your Tiller sheet might have an account "Checking", while your table of accounts has "Assets::Current Assets::Bank::Checking". Custom SQL you keep the short name in Tiller even though mapping rules can't rename accounts.
+You can write SQL scripts or use an interactive sqlite3 client to make changes between steps. For example your Tiller sheet might have an account "Checking", while your table of accounts has "Assets::Current Assets::Bank::Checking". With custom SQL you can keep the short name in Tiller even though mapping rules can't rename accounts.
 
 The C<--beforemap> and C<--aftermap> options allow SQL scripts to run immediately before
 and after the map phase without having to break the workflow into separate commands.
@@ -280,54 +273,12 @@ While other CSV export sources are not directly supported, you can write a scrip
 
 C<Finance::Tiller2QIF> is primarily a CLI tool; the public functions exist to
 support the command dispatcher. Programmatic users will likely use this module
-as a starting point and call the sub-modules directly (C<Finance::Tiller2QIF::ReadCSV>,
-C<Finance::Tiller2QIF::Map>, C<Finance::Tiller2QIF::WriteQIF>) for finer control.
+as example code and call the sub-modules directly (C<Finance::Tiller2QIF::ReadCSV>,
+C<Finance::Tiller2QIF::Map>, C<Finance::Tiller2QIF::WriteQIF>).
 
-Note that all functions accept C<db_path> as the database parameter. The CLI
+Note that all functions expect C<db_path> as the database parameter. The CLI
 normalises the C<--db> option to C<db_path> internally; programmatic callers
 should use C<db_path> directly.
-
-=head2 run
-
-  Finance::Tiller2QIF::run(
-    input     => 'export.csv',
-    db_path   => 'tiller.sqlite3',
-    mapfile   => 'mapping.txt',     # optional
-    beforemap => 'pre.sql',         # optional
-    aftermap  => 'post.sql',        # optional
-    output    => 'import.qif',
-  );
-
-Convenience wrapper that calls C<ingest>, C<apply_map>, and C<emit> in sequence
-with the same options hash.
-
-=head2 ingest
-
-  Finance::Tiller2QIF::ingest( input => 'export.csv', db_path => 'tiller.sqlite3' );
-
-Parses the Tiller CSV export and loads rows into the SQLite database.
-Returns the number of new rows inserted.
-
-=head2 apply_map
-
-  Finance::Tiller2QIF::apply_map(
-    db_path   => 'tiller.sqlite3',
-    mapfile   => 'mapping.txt',  # optional
-    beforemap => 'pre.sql',      # optional — runs before map rules
-    aftermap  => 'post.sql',     # optional — runs after map rules
-  );
-
-Applies category mapping rules to unexported transactions. If C<mapfile> is
-omitted, transactions pass through unchanged. C<beforemap> and C<aftermap>
-are paths to SQL scripts executed immediately before and after the mapping
-phase respectively; each may contain multiple semicolon-terminated statements.
-
-=head2 emit
-
-  Finance::Tiller2QIF::emit( db_path => 'tiller.sqlite3', output => 'import.qif' );
-
-Writes unexported transactions from the database to a QIF file and marks
-them as exported.
 
 =for Pod::Coverage run_cli
 

@@ -13,6 +13,12 @@ Exports transactions from the SQLite database to QIF (Quicken Interchange Format
 
 Write all unexported, non-skipped transactions from the database to a QIF file. Each account is written as a separate QIF account block with transactions sorted by date then payee. Marks written transactions as exported in the database.
 
+=head2 Preview
+
+  Finance::Tiller2QIF::WriteQIF::Preview( $db_path );
+
+Display all unexported, non-skipped transactions in a formatted table showing date, amount, account, payee, and category. Shows original category in brackets if mapped to a different category. Returns the count of transactions displayed.
+
 =head1 AUTHOR
 
 John Karr E<lt>brainbuz@cpan.orgE<gt>
@@ -99,7 +105,7 @@ sub Preview ( $db_path, $verbose=0 ) {
 
     for my $tx (@tx) {
       my $orig   = $tx->{category};
-      my $mapped = $tx->{mapped_category} // $orig;
+      my $mapped = $tx->{mapped_category} // $orig; # uncoverable statement
       my $cat    = $mapped ne $orig
                  ? '[' . $orig . '] ' . $mapped
                  : $mapped;
