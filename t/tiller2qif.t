@@ -61,7 +61,7 @@ subtest api_emit => sub {
   my $dbmojo  = freshdb($db_path);
   freshcsv( $csvfile, '04/25/2026,1,Checking,100.00,Deposit,Paycheck,Income' );
   Finance::Tiller2QIF::_ingest( input => $csvfile, db_path => $db_path );
-  ok( lives { Finance::Tiller2QIF::_emit( db_path => $db_path, output => $qiffile ) },
+  ok( lives { Finance::Tiller2QIF::_emit( db_path => $db_path, output => $qiffile, qifdate => 'ymd' ) },
     '_emit() lives' );
   ok( -e $qiffile, '_emit() created QIF file' );
   like( path($qiffile)->slurp_utf8, qr/PDeposit/, 'emitted QIF contains payee' );
@@ -85,6 +85,7 @@ subtest api_run => sub {
       db_path => $db_path,
       mapfile => $mapfile,
       output  => $qiffile,
+      qifdate => 'ymd',
     )
   }, '_run() lives' );
   like( path($qiffile)->slurp_utf8, qr/LIncome:Salary/, '_run() QIF has mapped category' );
