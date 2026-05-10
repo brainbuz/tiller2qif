@@ -37,7 +37,7 @@ sub _apply_map (%options) {
 
 sub _emit (%options) {
   Finance::Tiller2QIF::WriteQIF::Emit( $options{db_path}, $options{output},
-    $options{verbose} );
+    $options{verbose}, $options{qifdate} );
 }
 
 sub _preview (%options) {
@@ -115,6 +115,7 @@ sub run_cli {
       [ 'mapfile|f=s', "Category mapping file (map, run — optional)" ],
       [ 'beforemap=s', "sql script to run prior to map" ],
       [ 'aftermap=s',  "sql script to run after map" ],
+      [ 'qifdate=s',   "QIF date format: ymd (default), mdy, or dmy" ],
       [ 'confirm',     "run preview before emit and confirm export"],
       [ 'verbose|v',   "Print detailed progress information" ],
       [],
@@ -165,7 +166,7 @@ sub run_cli {
     %options = %$config;
   }
 
-  for my $key (qw( input output db verbose mapfile beforemap aftermap )) {
+  for my $key (qw( input output db verbose mapfile beforemap aftermap qifdate )) {
     my $val = $opt->$key();
     $options{$key} = $val if defined $val;
   }

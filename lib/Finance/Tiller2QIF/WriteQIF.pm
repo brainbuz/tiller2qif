@@ -56,7 +56,18 @@ sub _init($db_path) {
     ->arrays->@*;
 }
 
-sub Emit ( $db_path, $outfile, $verbose=0 ) {
+my %_date_fmt = (
+  ymd => sub { $_[0] }, # database uses ymd, no transformation
+  mdy => sub { my ($y,$m,$d) = split /-/, $_[0]; "$m/$d/$y" },
+  dmy => sub { my ($y,$m,$d) = split /-/, $_[0]; "$d/$m/$y" },
+);
+
+sub _format_date ( $iso_date, $fmt ) {
+  my $fn = $_date_fmt{ $fmt };
+  $fn->($iso_date);
+}
+
+sub Emit ( $db_path, $outfile, $verbose=0, $qifdate='ymd' ) {
   _init($db_path);
   for my $account (@accounts) {
     my $header = join( "\n", "!Account", "N$account", "^", "!Type:Bank" );
@@ -71,8 +82,9 @@ sub Emit ( $db_path, $outfile, $verbose=0 ) {
       $account
     )->hashes()->@*;
     my @qif_tx = map {
+      my $date = _format_date( $_->{date}, $qifdate );
       join( "\n",
-        "D$_->{date}", sprintf("T%.2f", $_->{amount}),
+        "D$date", sprintf("T%.2f", $_->{amount}),
         ( $_->{check_number} ? "N$_->{check_number}" : () ),
         "P$_->{payee}",
         ( $_->{memo} ? "M$_->{memo}" : () ),

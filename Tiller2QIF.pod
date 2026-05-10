@@ -93,7 +93,7 @@ tiller2qif works with Strawberry Perl, after installing Strawberry Perl, install
 
 =item B<emit> -- write QIF from the database
 
-  tiller2qif emit --db tiller.sqlite3 --output import.qif
+  tiller2qif emit --db mydb.sqlite3 --outfile my.qif [--qifdate mdy]
 
 =item B<newdb> -- initialise a new SQLite database
 
@@ -152,7 +152,12 @@ fire.
 after the mapping rules are applied.  Useful for post-processing the mapped results —
 for example, marking or transforming rows based on what the map phase produced.
 
-=item B<confirm> -- run preview before emit (including on run) and prompt for confirmation to continue.
+=item B<--qifdate> QIF output date format.  Accepts C<ymd> (default, ISO 8601:
+C<2026-04-24>), C<mdy> (US: C<04/24/2026>), or C<dmy> (European: C<24/04/2026>).
+Use C<mdy> or C<dmy> when your financial software does not recognise ISO dates
+during import.
+
+=item B<--confirm> -- run preview before emit (including on run) and prompt for confirmation to continue.
 
 =back
 
