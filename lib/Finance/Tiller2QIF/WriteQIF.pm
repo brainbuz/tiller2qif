@@ -148,4 +148,54 @@ sub Preview ( $db_path, $verbose=0 ) {
   return scalar @rows;
 }
 
+sub _trunc ( $str, $max ) { length($str) > $max ? substr( $str, 0, $max ) : $str }
+
+sub Preview ( $db_path, $verbose=0 ) {
+  _init($db_path);
+
+  my @rows;
+
+  for my $account (@accounts) {
+    my @tx = $sql->db->query(
+      q{ SELECT * FROM transactions
+          WHERE exported = 0 AND skipped = 0 AND account = ?
+          ORDER BY date, payee; },
+      $account
+    )->hashes()->@*;
+
+    for my $tx (@tx) {
+      my $orig   = $tx->{category};
+      my $mapped = $tx->{mapped_category} // $orig; # uncoverable statement
+      my $cat    = $mapped ne $orig
+                 ? '[' . $orig . '] ' . $mapped
+                 : $mapped;
+
+      push @rows, {
+        account => _trunc( $account,          30 ),
+        date    => $tx->{date},
+        amount  => sprintf( "%.2f", $tx->{amount} ),
+        payee   => _trunc( $tx->{payee},      20 ),
+        cat     => _trunc( $cat,              30 ),
+        memo    => _trunc( $tx->{memo},       30 ),
+      };
+    }
+  }
+
+  # line 1: date | amount | account | payee
+  # line 2:  (1-space indent) category | memo
+  my $L1 = "%-10s | %8s | %-20s | %-20s\n";
+  my $L2 = " %-30s | %-30s\n";
+  my $div = '-' x 68;
+
+  printf $L1, 'Date', 'Amount', 'Account', 'Payee';
+  say "Category | Memo [Category preceded by original if changed by map]";
+  say $div;
+  for my $row (@rows) {
+    printf $L1, $row->{date}, $row->{amount}, $row->{account}, $row->{payee};
+    printf $L2, $row->{cat}, $row->{memo};
+  }
+
+  return scalar @rows;
+}
+
 1;
