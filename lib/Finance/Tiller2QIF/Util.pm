@@ -92,6 +92,13 @@ my $example = q|
   # "mapfile": "~/data/tiller2qif.mapfile",
   # "beforemap" : "~/some.sql",
   # "aftermap" : "~/other.sql",
+
+  # QIF date format: ymd (ISO, default), mdy (US), dmy (European)
+  # "qifdate": "ymd",
+
+  "verbose":    false,
+  "checkpoint": false,
+  "confirm":    false
 }
 |;
 
@@ -105,7 +112,7 @@ sub InitConfig ($config) {
 
 sub vPrint ( $verbose, @messages ) {
   if ($verbose) {
-    for (@messages) { say }
+    for (@messages) { say $_ }
   }
 }
 

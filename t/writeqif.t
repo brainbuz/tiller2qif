@@ -163,6 +163,35 @@ subtest skipped_excluded => sub {
   unlink $dbfile, $csvfile, $mapfile, $qiffile;
 };
 
+subtest qifdate_formats => sub {
+  my $dbfile  = uniqfile( 'wq_datefmt', 'sqlite3' );
+  my $csvfile = uniqfile( 'wq_datefmt', 'csv' );
+
+  freshdb($dbfile);
+  freshcsv( $csvfile,
+    '04/24/2026,1,Checking,100.00,Deposit,Paycheck,Income',
+  );
+  Finance::Tiller2QIF::ReadCSV::Ingest( $csvfile, $dbfile );
+
+  for my $case (
+    [ ymd => 'D2026-04-24' ],
+    [ mdy => 'D04/24/2026' ],
+    [ dmy => 'D24/04/2026' ],
+  ) {
+    my ( $fmt, $expected ) = @$case;
+    my $qiffile = uniqfile( "wq_datefmt_$fmt", 'qif' );
+    Finance::Tiller2QIF::WriteQIF::Emit( $dbfile, $qiffile, 0, $fmt );
+    like( path($qiffile)->slurp_utf8, qr/\Q$expected\E/,
+      "date format '$fmt' produces '$expected'" );
+    # reset exported flag so next iteration can re-emit
+    Mojo::SQLite->new($dbfile)->options({ sqlite_unicode => 1 })
+      ->db->query('UPDATE transactions SET exported = 0');
+    unlink $qiffile;
+  }
+
+  unlink $dbfile, $csvfile;
+};
+
 subtest preview => sub {
   my $dbfile = uniqfile( 'wq_preview', 'sqlite3' );
   my $db     = freshdb($dbfile);

@@ -5,8 +5,6 @@
 # Routines for testing Tiller2QIF
 
 use 5.034;
-use strict;
-use warnings;
 use feature qw/postderef signatures/;
 
 use Test2::API qw/test2_stack/;

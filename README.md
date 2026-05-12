@@ -12,10 +12,16 @@ Convert Tiller CSV exports to QIF for import into Financial software like GnuCas
 
     # Command-line
     tiller2qif run --input export.csv --db tiller.sqlite3 \
-      db_path => 'tiller.sqlite3',
-      mapfile => 'mapping.txt',
-      output  => 'import.qif',
-    );
+                   --output import.qif [--mapfile mapping.txt]
+
+    # Programmatic — see PROGRAMMATIC USE below
+    use Finance::Tiller2QIF::ReadCSV;
+    use Finance::Tiller2QIF::Map;
+    use Finance::Tiller2QIF::WriteQIF;
+
+    Finance::Tiller2QIF::ReadCSV::Ingest( 'export.csv', 'tiller.sqlite3' );
+    Finance::Tiller2QIF::Map::Map({ db_path => 'tiller.sqlite3', mapfile => 'mapping.txt' });
+    Finance::Tiller2QIF::WriteQIF::Emit( 'tiller.sqlite3', 'import.qif' );
 
 # OVERVIEW
 
@@ -77,9 +83,12 @@ tiller2qif works with Strawberry Perl, after installing Strawberry Perl, install
                        [--beforemap before.sql] [--aftermap after.sql]
 
 - **preview** -- preview the records that would be emitted
+
+        tiller2qif preview --db tiller.sqlite3
+
 - **emit** -- write QIF from the database
 
-        tiller2qif emit --db tiller.sqlite3 --output import.qif
+        tiller2qif emit --db tiller.sqlite3 --output import.qif [--qifdate mdy]
 
 - **newdb** -- initialise a new SQLite database
 
@@ -107,15 +116,24 @@ tiller2qif works with Strawberry Perl, after installing Strawberry Perl, install
 
 # OPTIONS
 
-      "input":    "~/Downloads/mytillerdump.csv",
-      "output":   "/tmp/tillerout.qif",
-      "db":       "~/.data/tiller2qif.sqlite3",
-      "mapfile": "~/.config/tiller.mapping"
+All options can be supplied on the command line or in a JSON config file.
+Use `tiller2qif newconfig --config path/to/file.conf` to generate a starter
+config file.  A typical config file looks like:
+
+    {
+      "input":      "~/Downloads/mytillerdump.csv",
+      "output":     "/tmp/tillerout.qif",
+      "db":         "~/.data/tiller2qif.sqlite3",
+      "mapfile":    "~/.config/tiller.mapping",
+      "verbose":    false,
+      "checkpoint": false,
+      "confirm":    false
     }
 
 Pass the config file with `--config`.  Command-line options override config
 file values.
 
+- **--config** Path to a JSON config file.
 - **--input** CSV export from Tiller.
 - **--output** QIF file to create.
 - **--db** SQLite database file used to store and transform transactions between phases.
@@ -128,7 +146,16 @@ fire.
 - **--aftermap** Path to a SQL script to execute against the database immediately
 after the mapping rules are applied.  Useful for post-processing the mapped results —
 for example, marking or transforming rows based on what the map phase produced.
-- **confirm** -- run preview before emit (including on run) and prompt for confirmation to continue.
+- **--qifdate** QIF output date format.  Accepts `ymd` (default, ISO 8601:
+`2026-04-24`), `mdy` (US: `04/24/2026`), or `dmy` (European: `24/04/2026`).
+Use `mdy` or `dmy` when your financial software does not recognise ISO dates
+during import.
+- **--checkpoint** Copy the database with a timestamp suffix before any operations.
+The `run` command always checkpoints, even without this flag.
+- **--confirm** Run preview before emit (including on `run`) and prompt for
+confirmation before writing the QIF file.
+- **--verbose** Print detailed progress information during each phase.  Also
+runs `checkconfig` automatically before any operations begin.
 
 # MAPPING FILE
 
