@@ -37,7 +37,7 @@ sub _apply_map (%options) {
 
 sub _emit (%options) {
   Finance::Tiller2QIF::WriteQIF::Emit( $options{db_path}, $options{output},
-    $options{verbose} );
+    $options{verbose}, $options{qifdate} // 'ymd' );
 }
 
 sub _preview (%options) {
@@ -52,12 +52,12 @@ sub _run (%options) {
 
 sub _checkpoint($file) {
   my $new = "$file." . localtime()->datetime();
-  $new =~ tr/\:/_/;
+  $new =~ s/[T:]/_/g;
   path($file)->copy($new);
 }
 
 sub _clean_checkpoints($file) {
-  my @checkpoints = grep { $_ ne $file } glob( $file . '*' );
+  my @checkpoints = grep { /\.\d{4}-\d{2}-\d{2}_\d{2}_\d{2}_\d{2}$/ } glob( $file . '.*' );
   for my $cp (@checkpoints) {
     path($cp)->remove;
     say "Removed checkpoint: $cp";
@@ -115,6 +115,7 @@ sub run_cli {
       [ 'mapfile|f=s', "Category mapping file (map, run — optional)" ],
       [ 'beforemap=s', "sql script to run prior to map" ],
       [ 'aftermap=s',  "sql script to run after map" ],
+      [ 'qifdate=s',   "QIF date format: ymd (default), mdy, or dmy" ],
       [ 'confirm',     "run preview before emit and confirm export"],
       [ 'verbose|v',   "Print detailed progress information" ],
       [],
@@ -158,19 +159,34 @@ sub run_cli {
     return;
   }
 
-  my %options = ();
+  # Precedence: defaults < config file < CLI args
+  my %options = (
+    input      => undef,
+    output     => undef,
+    db         => undef,
+    mapfile    => undef,
+    beforemap  => undef,
+    aftermap   => undef,
+    qifdate    => 'ymd',
+    verbose    => 0,
+    checkpoint => 0,
+    confirm    => 0,
+  );
+
   if ( $opt->config ) {
     my $config = Cpanel::JSON::XS->new->utf8->relaxed->decode(
       path( $opt->config )->slurp_utf8 );
-    %options = %$config;
+    for my $key ( keys %options ) {
+      $options{$key} = $config->{$key} if defined $config->{$key};
+    }
   }
 
-  for my $key (qw( input output db verbose mapfile beforemap aftermap )) {
+  for my $key ( keys %options ) {
     my $val = $opt->$key();
     $options{$key} = $val if defined $val;
   }
 
-  $options{db_path} = delete $options{db} if exists $options{db};
+  $options{db_path} = delete $options{db} if defined $options{db};
 
   if ( $cmd eq 'newdb' ) {
     die "newdb requires --db\n" unless $options{db_path};
@@ -198,16 +214,16 @@ sub run_cli {
       . join( ', ', @missing ) . "\n";
   }
 
-  if ( $opt->verbose || $cmd eq 'checkconfig' ) {
+  if ( $options{verbose} || $cmd eq 'checkconfig' ) {
     Finance::Tiller2QIF::Util::CheckConfig(%options);
   }
 
-  if ( $opt->checkpoint || $cmd eq 'run' ) {
+  if ( $options{checkpoint} || $cmd eq 'run' ) {
     _checkpoint( $options{db_path} );
   }
 
   if ( $cmd =~ /^(?:ingest|run)$/ ) {
-    vPrint ( $opt->verbose, "Ingesting CSV: " . $options{input} );
+    vPrint( $options{verbose}, "Ingesting CSV: " . $options{input} );
 
     my $newitems = _ingest(%options);
     say "Ingested: ${newitems} transactions from: " . $options{input};
@@ -215,7 +231,7 @@ sub run_cli {
 
   if ( $cmd =~ /^(?:map|run)$/ ) {
     if ( $options{mapfile} ) {
-      say "Applying mapping: " . $options{mapfile} if $opt->verbose;
+      say "Applying mapping: " . $options{mapfile} if $options{verbose};
       _apply_map(%options);
       say "Mapping applied: " . $options{mapfile};
     }
@@ -225,7 +241,7 @@ sub run_cli {
   }
 
   if ( $cmd =~ /^(?:emit|run)$/ ) {
-    if ( $opt->confirm ) {
+    if ( $options{confirm} ) {
       my $count = _preview(%options);
       say "${count} transaction(s) pending export.";
       say '?'x60;
@@ -235,7 +251,7 @@ sub run_cli {
       # uncoverable branch false
       return unless $response =~ /^y/i;
     }
-    vPrint( $opt->verbose, "Writing QIF: " . $options{output} );
+    vPrint( $options{verbose}, "Writing QIF: " . $options{output} );
     my $changed = _emit(%options);
     say "QIF written: ${\ $options{output}}, ${changed} records emitted!";
   }

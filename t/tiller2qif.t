@@ -61,7 +61,7 @@ subtest api_emit => sub {
   my $dbmojo  = freshdb($db_path);
   freshcsv( $csvfile, '04/25/2026,1,Checking,100.00,Deposit,Paycheck,Income' );
   Finance::Tiller2QIF::_ingest( input => $csvfile, db_path => $db_path );
-  ok( lives { Finance::Tiller2QIF::_emit( db_path => $db_path, output => $qiffile ) },
+  ok( lives { Finance::Tiller2QIF::_emit( db_path => $db_path, output => $qiffile, qifdate => 'ymd' ) },
     '_emit() lives' );
   ok( -e $qiffile, '_emit() created QIF file' );
   like( path($qiffile)->slurp_utf8, qr/PDeposit/, 'emitted QIF contains payee' );
@@ -85,6 +85,7 @@ subtest api_run => sub {
       db_path => $db_path,
       mapfile => $mapfile,
       output  => $qiffile,
+      qifdate => 'ymd',
     )
   }, '_run() lives' );
   like( path($qiffile)->slurp_utf8, qr/LIncome:Salary/, '_run() QIF has mapped category' );
@@ -307,13 +308,13 @@ subtest cli_clean => sub {
   sleep 1;
   Finance::Tiller2QIF::_checkpoint( $db_path );
 
-  my @before = grep { $_ ne $db_path } glob( $db_path . '*' );
+  my @before = grep { /\.\d{4}-\d{2}-\d{2}_\d{2}_\d{2}_\d{2}$/ } glob( $db_path . '.*' );
   ok( @before == 2, 'two checkpoint copies exist before clean' );
 
   local @ARGV = ( 'clean', '--db', $db_path );
   ok( lives { Finance::Tiller2QIF::run_cli() }, 'clean returns normally' );
 
-  my @after = grep { $_ ne $db_path } glob( $db_path . '*' );
+  my @after = grep { /\.\d{4}-\d{2}-\d{2}_\d{2}_\d{2}_\d{2}$/ } glob( $db_path . '.*' );
   ok( @after == 0, 'clean removed all checkpoint copies' );
   ok( -e $db_path,  'clean left the original database intact' );
 };

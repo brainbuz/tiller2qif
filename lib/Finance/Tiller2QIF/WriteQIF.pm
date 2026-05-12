@@ -40,25 +40,32 @@ use open ':std', ':encoding(UTF-8)';
 use feature qw/signatures postderef/;
 # use Data::Printer;
 
-# Global variables to reduce passing between subroutines.
-our @accounts = ();
-our $sql      = {};
-our @qif      = ();
-
-# Initializes the global sql object and accounts list.
 sub _init($db_path) {
-  $sql      = Mojo::SQLite->new($db_path)->options({ sqlite_unicode => 1 });
-  @qif      = ();
-  @accounts =
+  my $sql      = Mojo::SQLite->new($db_path)->options({ sqlite_unicode => 1 });
+  my @accounts =
     map { $_->[0] }
     $sql->db->query(
     q{SELECT distinct(account) FROM transactions WHERE exported = 0 AND skipped = 0;})
     ->arrays->@*;
+  return ( $sql, \@accounts );
 }
 
-sub Emit ( $db_path, $outfile, $verbose=0 ) {
-  _init($db_path);
-  for my $account (@accounts) {
+my %_date_fmt = (
+  ymd => sub { $_[0] }, # database uses ymd, no transformation
+  mdy => sub { my ($y,$m,$d) = split /-/, $_[0]; "$m/$d/$y" },
+  dmy => sub { my ($y,$m,$d) = split /-/, $_[0]; "$d/$m/$y" },
+);
+
+sub _format_date ( $iso_date, $fmt ) {
+  my $fn = $_date_fmt{ $fmt };
+  $fn->($iso_date);
+}
+
+sub Emit ( $db_path, $outfile, $verbose=0, $qifdate='ymd' ) {
+  my ( $sql, $accounts ) = _init($db_path);
+  my @qif;
+  my $emitted = 0;
+  for my $account (@$accounts) {
     my $header = join( "\n", "!Account", "N$account", "^", "!Type:Bank" );
     my @tx     = $sql->db->query(
       q{ SELECT *,
@@ -71,13 +78,15 @@ sub Emit ( $db_path, $outfile, $verbose=0 ) {
       $account
     )->hashes()->@*;
     my @qif_tx = map {
+      my $date = _format_date( $_->{date}, $qifdate );
       join( "\n",
-        "D$_->{date}", sprintf("T%.2f", $_->{amount}),
+        "D$date", sprintf("T%.2f", $_->{amount}),
         ( $_->{check_number} ? "N$_->{check_number}" : () ),
         "P$_->{payee}",
         ( $_->{memo} ? "M$_->{memo}" : () ),
         ( $_->{effective_category} ? "L$_->{effective_category}" : () ), "^" )
     } @tx;
+    $emitted += scalar @tx;
     push @qif, $header, @qif_tx;
   }
 
@@ -85,17 +94,18 @@ sub Emit ( $db_path, $outfile, $verbose=0 ) {
 
   path($outfile)->spew_utf8( join( "\n", @qif ) . "\n" );
 
-  $sql->db->query('UPDATE transactions SET exported = 1 WHERE exported = 0')->rows;
+  $sql->db->query('UPDATE transactions SET exported = 1 WHERE exported = 0');
+  return $emitted;
 }
 
 sub _trunc ( $str, $max ) { length($str) > $max ? substr( $str, 0, $max ) : $str }
 
 sub Preview ( $db_path, $verbose=0 ) {
-  _init($db_path);
+  my ( $sql, $accounts ) = _init($db_path);
 
   my @rows;
 
-  for my $account (@accounts) {
+  for my $account (@$accounts) {
     my @tx = $sql->db->query(
       q{ SELECT * FROM transactions
           WHERE exported = 0 AND skipped = 0 AND account = ?
