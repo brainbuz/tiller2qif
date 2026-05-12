@@ -17,10 +17,16 @@ Convert Tiller CSV exports to QIF for import into Financial software like GnuCas
 
   # Command-line
   tiller2qif run --input export.csv --db tiller.sqlite3 \
-    db_path => 'tiller.sqlite3',
-    mapfile => 'mapping.txt',
-    output  => 'import.qif',
-  );
+                 --output import.qif [--mapfile mapping.txt]
+
+  # Programmatic — see PROGRAMMATIC USE below
+  use Finance::Tiller2QIF::ReadCSV;
+  use Finance::Tiller2QIF::Map;
+  use Finance::Tiller2QIF::WriteQIF;
+
+  Finance::Tiller2QIF::ReadCSV::Ingest( 'export.csv', 'tiller.sqlite3' );
+  Finance::Tiller2QIF::Map::Map({ db_path => 'tiller.sqlite3', mapfile => 'mapping.txt' });
+  Finance::Tiller2QIF::WriteQIF::Emit( 'tiller.sqlite3', 'import.qif' );
 
 =head1 OVERVIEW
 
@@ -91,9 +97,11 @@ tiller2qif works with Strawberry Perl, after installing Strawberry Perl, install
 
 =item B<preview> -- preview the records that would be emitted
 
+  tiller2qif preview --db tiller.sqlite3
+
 =item B<emit> -- write QIF from the database
 
-  tiller2qif emit --db mydb.sqlite3 --outfile my.qif [--qifdate mdy]
+  tiller2qif emit --db tiller.sqlite3 --output import.qif [--qifdate mdy]
 
 =item B<newdb> -- initialise a new SQLite database
 
@@ -123,16 +131,26 @@ leaving the live database intact.
 
 =head1 OPTIONS
 
-    "input":    "~/Downloads/mytillerdump.csv",
-    "output":   "/tmp/tillerout.qif",
-    "db":       "~/.data/tiller2qif.sqlite3",
-    "mapfile": "~/.config/tiller.mapping"
+All options can be supplied on the command line or in a JSON config file.
+Use C<tiller2qif newconfig --config path/to/file.conf> to generate a starter
+config file.  A typical config file looks like:
+
+  {
+    "input":      "~/Downloads/mytillerdump.csv",
+    "output":     "/tmp/tillerout.qif",
+    "db":         "~/.data/tiller2qif.sqlite3",
+    "mapfile":    "~/.config/tiller.mapping",
+    "verbose":    false,
+    "checkpoint": false,
+    "confirm":    false
   }
 
 Pass the config file with C<--config>.  Command-line options override config
 file values.
 
 =over 4
+
+=item B<--config> Path to a JSON config file.
 
 =item B<--input> CSV export from Tiller.
 
@@ -157,7 +175,14 @@ C<2026-04-24>), C<mdy> (US: C<04/24/2026>), or C<dmy> (European: C<24/04/2026>).
 Use C<mdy> or C<dmy> when your financial software does not recognise ISO dates
 during import.
 
-=item B<--confirm> -- run preview before emit (including on run) and prompt for confirmation to continue.
+=item B<--checkpoint> Copy the database with a timestamp suffix before any operations.
+The C<run> command always checkpoints, even without this flag.
+
+=item B<--confirm> Run preview before emit (including on C<run>) and prompt for
+confirmation before writing the QIF file.
+
+=item B<--verbose> Print detailed progress information during each phase.  Also
+runs C<checkconfig> automatically before any operations begin.
 
 =back
 

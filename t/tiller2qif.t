@@ -308,13 +308,13 @@ subtest cli_clean => sub {
   sleep 1;
   Finance::Tiller2QIF::_checkpoint( $db_path );
 
-  my @before = grep { $_ ne $db_path } glob( $db_path . '*' );
+  my @before = grep { /\.\d{4}-\d{2}-\d{2}_\d{2}_\d{2}_\d{2}$/ } glob( $db_path . '.*' );
   ok( @before == 2, 'two checkpoint copies exist before clean' );
 
   local @ARGV = ( 'clean', '--db', $db_path );
   ok( lives { Finance::Tiller2QIF::run_cli() }, 'clean returns normally' );
 
-  my @after = grep { $_ ne $db_path } glob( $db_path . '*' );
+  my @after = grep { /\.\d{4}-\d{2}-\d{2}_\d{2}_\d{2}_\d{2}$/ } glob( $db_path . '.*' );
   ok( @after == 0, 'clean removed all checkpoint copies' );
   ok( -e $db_path,  'clean left the original database intact' );
 };

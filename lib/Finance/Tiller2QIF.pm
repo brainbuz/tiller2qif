@@ -52,12 +52,12 @@ sub _run (%options) {
 
 sub _checkpoint($file) {
   my $new = "$file." . localtime()->datetime();
-  $new =~ tr/\:/_/;
+  $new =~ s/[T:]/_/g;
   path($file)->copy($new);
 }
 
 sub _clean_checkpoints($file) {
-  my @checkpoints = grep { $_ ne $file } glob( $file . '*' );
+  my @checkpoints = grep { /\.\d{4}-\d{2}-\d{2}_\d{2}_\d{2}_\d{2}$/ } glob( $file . '.*' );
   for my $cp (@checkpoints) {
     path($cp)->remove;
     say "Removed checkpoint: $cp";

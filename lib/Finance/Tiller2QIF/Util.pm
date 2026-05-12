@@ -112,7 +112,7 @@ sub InitConfig ($config) {
 
 sub vPrint ( $verbose, @messages ) {
   if ($verbose) {
-    for (@messages) { say }
+    for (@messages) { say $_ }
   }
 }
 
