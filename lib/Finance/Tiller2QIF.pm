@@ -54,6 +54,7 @@ sub _checkpoint($file) {
   my $new = "$file." . localtime()->datetime();
   $new =~ s/[T:]/_/g;
   path($file)->copy($new);
+  return $new;
 }
 
 sub _clean_checkpoints($file) {
@@ -63,6 +64,21 @@ sub _clean_checkpoints($file) {
     say "Removed checkpoint: $cp";
   }
   return scalar @checkpoints;
+}
+
+sub _confirm ( %options ) {
+  # uncoverable branch true
+  # uncoverable branch false
+  if ( $options{confirm} ) {
+    my $count = _preview(%options);
+    say "${count} transaction(s) pending export.";
+    say '?'x60;
+    print "Complete export? Y/n: ";
+    my $response = <STDIN>;
+    return 1 if $response =~ /^y/i; # user confirmed
+    return 0; # didn't confirm
+  }
+  return 1; # confirmation not requested return true as if confirmed.
 }
 
 # ---------------------------------------------------------------------------
@@ -219,7 +235,7 @@ sub run_cli {
   }
 
   if ( $options{checkpoint} || $cmd eq 'run' ) {
-    _checkpoint( $options{db_path} );
+    $options{checkpointfile} = _checkpoint( $options{db_path} );
   }
 
   if ( $cmd =~ /^(?:ingest|run)$/ ) {
@@ -241,16 +257,9 @@ sub run_cli {
   }
 
   if ( $cmd =~ /^(?:emit|run)$/ ) {
-    if ( $options{confirm} ) {
-      my $count = _preview(%options);
-      say "${count} transaction(s) pending export.";
-      say '?'x60;
-      print "Complete export? Y/n: ";
-      my $response = <STDIN>;
-      # uncoverable branch true
-      # uncoverable branch false
-      return unless $response =~ /^y/i;
-    }
+    # uncoverable branch true
+    # uncoverable branch false
+    return unless _confirm ( %options );
     vPrint( $options{verbose}, "Writing QIF: " . $options{output} );
     my $changed = _emit(%options);
     say "QIF written: ${\ $options{output}}, ${changed} records emitted!";
