@@ -73,9 +73,16 @@ sub _confirm ( %options ) {
     my $count = _preview(%options);
     say "${count} transaction(s) pending export.";
     say '?'x60;
-    print "Complete export? Y/n: ";
+    my $msg = "Complete export? Y/n: ";
+    if( $options{checkpoint} ) {
+      $msg = "Y=Yes N=No R=No and Revert to last Checkpoint\nComplete export? Y/n/r: ";
+    }
     my $response = <STDIN>;
     return 1 if $response =~ /^y/i; # user confirmed
+    if ( $response =~ /^r/i ) {
+      # copy checkpoint over db
+      path($options{checkpointfile})->copy($options{db_path});
+    }
     return 0; # didn't confirm
   }
   return 1; # confirmation not requested return true as if confirmed.
