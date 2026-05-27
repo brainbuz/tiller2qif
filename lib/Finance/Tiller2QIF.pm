@@ -71,12 +71,14 @@ sub _confirm ( %options ) {
   # uncoverable branch false
   if ( $options{confirm} ) {
     my $count = _preview(%options);
+    say '-'x60;
     say "${count} transaction(s) pending export.";
-    say '?'x60;
+    say '-'x60;
     my $msg = "Complete export? Y/n: ";
-    if( $options{checkpoint} ) {
+    if( $options{confirm} && $options{checkpoint}) {
       $msg = "Y=Yes N=No R=No and Revert to last Checkpoint\nComplete export? Y/n/r: ";
     }
+    say $msg;
     my $response = <STDIN>;
     return 1 if $response =~ /^y/i; # user confirmed
     if ( $response =~ /^r/i ) {
@@ -208,6 +210,7 @@ sub run_cli {
     my $val = $opt->$key();
     $options{$key} = $val if defined $val;
   }
+  $options{checkpoint} = 1 if $cmd eq 'run';
 
   $options{db_path} = delete $options{db} if defined $options{db};
 

@@ -256,7 +256,7 @@ or `map` as a single step.
 
 The `preview` command is meant to be run between map and emit. You may run the steps individually (ingest, map, preview, emit), or use the `--confirm` option to run preview before emit (including run).
 
-When using `--confirm` with `--checkpoint`, you gain the ability to review the pending transactions and revert the database to its pre-ingest/pre-map state if needed. This is useful when you want to make corrections before finalizing the export. Simply press `r` when prompted to restore the checkpoint and exit without writing the QIF file.
+When using `--confirm` with `--checkpoint`, three choices Y=Yes N=No R=Revert are offered. No keeps the database state while not completing the export, Revert restores the database to the checkpoint in addition to aborting.
 
 While other CSV export sources are not directly supported, you can write a script to remap the fields for ingestion or just import into the table, and then use the map and emit stages to complete your export. If translating other CSV sources be aware that Tiller currently only provides it's data in the US 'MM/DD/YYYY' format, this program can also accept dates in ISO 8601 'YYYY-MM-DD'. Data is written into the SQLite database using the ISO 8601 format.
 
