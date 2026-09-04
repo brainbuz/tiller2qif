@@ -194,6 +194,29 @@ naturally: `[Checking|Savings]`. Omit to match all accounts.
 
     To match a literal pipe character in the data, escape it with a backslash:
 
+        payee | Cash\|App Payment | Expenses:Transfers
+
+    Patterns are Perl regular expressions, so escape other regex metacharacters
+    when they should be literal (`.`, `*`, `+`, the question mark, `(`, `)`,
+    `[`, `]`, `$`, `^`, `\`, or `/` in a slash-delimited pattern). Apostrophes
+    have no special meaning and do not need escaping:
+
+        payee | /^kaplan's new model$/ | Expenses:Models
+
+    More complex regular expressions are supported when a simple pattern is not
+    enough. For example, this matches Kaplan, Kaplan's, or Kaplans followed by
+    “New” and an optional “Model”:
+
+        payee | /kaplan(?:'s|s)? new(?: model)?/ | Expenses:Bakeries
+
+    A more realistic version would capture Kaplan with and without the apostrophe while expecting new model to be present.
+
+        payee |  /kaplan(?:'s|s)? new model?/ | Expenses:Bakeries
+
+    Use complex patterns carefully. Test them against representative transaction
+    data to make sure they match all intended values without capturing unrelated
+    transactions.
+
 - `source` — keep the original Tiller category unchanged.
 - `blank` — emit no category field in the QIF output.
 - `skip` — exclude the transaction from QIF output entirely (useful for
