@@ -158,6 +158,7 @@ a revert option (press `r`) to restore the database to its checkpoint state,
 useful if you want to undo changes made during ingest or mapping.
 - **--verbose** Print detailed progress information during each phase.  Also
 runs `checkconfig` automatically before any operations begin.
+- **--version** Print the installed version number and exit.
 
 # MAPPING FILE
 
@@ -201,7 +202,7 @@ naturally: `[Checking|Savings]`. Omit to match all accounts.
     `[`, `]`, `$`, `^`, `\`, or `/` in a slash-delimited pattern). Apostrophes
     have no special meaning and do not need escaping:
 
-        payee | /^kaplan's new model$/ | Expenses:Models
+        payee | /^kaplan's new model$/ | Expenses:Food
 
     More complex regular expressions are supported when a simple pattern is not
     enough. For example, this matches Kaplan, Kaplan's, or Kaplans followed by
@@ -209,13 +210,7 @@ naturally: `[Checking|Savings]`. Omit to match all accounts.
 
         payee | /kaplan(?:'s|s)? new(?: model)?/ | Expenses:Bakeries
 
-    A more realistic version would capture Kaplan with and without the apostrophe while expecting new model to be present.
-
-        payee |  /kaplan(?:'s|s)? new model?/ | Expenses:Bakeries
-
-    Use complex patterns carefully. Test them against representative transaction
-    data to make sure they match all intended values without capturing unrelated
-    transactions.
+    Test complex patterns carefully, to make sure they are interpreted as expected.
 
 - `source` — keep the original Tiller category unchanged.
 - `blank` — emit no category field in the QIF output.

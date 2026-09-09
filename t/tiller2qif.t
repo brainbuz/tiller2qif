@@ -212,6 +212,7 @@ subtest cli_run_verbose => sub {
   ok( lives { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
     'cli run --verbose returns normally' );
   ok( -e $qiffile, 'cli run --verbose produced QIF file' );
+  like( $out, qr/Tiller2QIF VERSION:/, 'verbose output includes the version' );
   like( $out, qr/Ingesting CSV/,    'verbose output mentions ingesting' );
   like( $out, qr/Applying mapping/, 'verbose output mentions mapping' );
   like( $out, qr/Writing QIF/,      'verbose output mentions writing' );
@@ -325,6 +326,14 @@ subtest cli_version => sub {
   ok( lives { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
     'version command returns normally' );
   like( $out, qr/VERSION/, 'version command prints VERSION' );
+};
+
+subtest cli_version_option => sub {
+  local @ARGV = ('--version');
+  my $out = '';
+  ok( lives { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
+    '--version returns normally' );
+  like( $out, qr/Tiller2QIF VERSION:/, '--version prints the installed version' );
 };
 
 subtest cli_help => sub {

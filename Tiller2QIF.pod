@@ -186,6 +186,8 @@ useful if you want to undo changes made during ingest or mapping.
 =item B<--verbose> Print detailed progress information during each phase.  Also
 runs C<checkconfig> automatically before any operations begin.
 
+=item B<--version> Print the installed version number and exit.
+
 =back
 
 =head1 MAPPING FILE

@@ -66,6 +66,14 @@ sub _clean_checkpoints($file) {
   return scalar @checkpoints;
 }
 
+sub _version_text {
+  # dzil is in charge of the $VERSION variable which means it is undefined during development
+  # uncoverable branch true
+  # uncoverable branch false
+  my $v = do { no strict 'vars'; $VERSION // 'unversioned' };
+  return "Tiller2QIF VERSION: ${v}";
+}
+
 sub _confirm ( %options ) {
   # uncoverable branch true
   # uncoverable branch false
@@ -143,6 +151,7 @@ sub run_cli {
       [ 'qifdate=s',   "QIF date format: ymd (default), mdy, or dmy" ],
       [ 'confirm',     "run preview before emit and confirm export"],
       [ 'verbose|v',   "Print detailed progress information" ],
+      [ 'version',     "Print the installed version and exit", { shortcircuit => 1 } ],
       [],
       [ 'help|h', "Print usage and exit", { shortcircuit => 1 } ],
     );
@@ -152,6 +161,11 @@ sub run_cli {
 
   if ( $opt->help ) {
     say $usage;
+    return;
+  }
+
+  if ( $opt->version ) {
+    say _version_text();
     return;
   }
 
@@ -167,16 +181,13 @@ sub run_cli {
     unless $cmd =~ /^(?:$VALID_COMMANDS)$/;
 
   if ( $cmd eq 'version' ) {
-    # dzil is in charge of the $VERSION variable which means it is undefined during development
-    # uncoverable branch true
-    # uncoverable branch false
-    my $v = do { no strict 'vars'; $VERSION // 'unversioned' };
-    say "Tiller2QIF VERSION: ${v}";
+    say _version_text();
     return;
   }
 
   if ( $cmd eq 'newconfig' ) {
     die "newconfig requires --config\n" unless $opt->config;
+    vPrint( $opt->verbose, _version_text() );
     # say "Creating config file: " . $opt->config if $opt->verbose;
     vPrint( $opt->verbose, "Creating config file: " . $opt->config );
     Finance::Tiller2QIF::Util::InitConfig( $opt->config );
@@ -211,6 +222,8 @@ sub run_cli {
     $options{$key} = $val if defined $val;
   }
   $options{checkpoint} = 1 if $cmd eq 'run';
+
+  vPrint( $options{verbose}, _version_text() );
 
   $options{db_path} = delete $options{db} if defined $options{db};
 
