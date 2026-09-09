@@ -1,6 +1,9 @@
 Revision history for Finance-Tiller2QIF
-1.09      ???
-  - tests and documentation for challenging bakery.
+1.09      2026-09-08
+  - tests for a challenging bakery.
+  - add --version to cli
+  - replace Mojo::SQLite with DBI because it was bringing all of Mojolicious in
+  - minimum perl raised to 5.036
 1.08      2026-05-27
   - add option to revert to checkpoint when confirming run.
 1.06      2026-05-11
