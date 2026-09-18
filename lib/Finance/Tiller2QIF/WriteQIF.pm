@@ -1,6 +1,8 @@
 package Finance::Tiller2QIF::WriteQIF;
 # ABSTRACT: Write transactions to QIF format
 
+=encoding utf8
+
 =head1 DESCRIPTION
 
 Exports transactions from the SQLite database to QIF (Quicken Interchange Format) for import into financial software. Transactions are grouped by account and sorted by date. Skipped transactions and those without effective categories are handled appropriately.
@@ -16,8 +18,14 @@ Write all unexported, non-skipped transactions from the database to a QIF file. 
 =head2 Preview
 
   Finance::Tiller2QIF::WriteQIF::Preview( $db_path );
+  Finance::Tiller2QIF::WriteQIF::Preview( $db_path, $verbose, $viewer );
+  Finance::Tiller2QIF::WriteQIF::Preview( $db_path, $verbose, $viewer, $mapfile );
 
 Display all unexported, non-skipped transactions in a formatted table showing date, amount, account, payee, and category. Shows original category in brackets if mapped to a different category. Returns the count of transactions displayed.
+
+C<$viewer> selects where the table goes. The default, C<console>, prints to STDOUT. Any other value names an external program (optionally with arguments, e.g. C<code --wait>); the table is written to a read-only temporary file with a C<.t2qpv> suffix, the program is launched with that file as its argument, and the path is printed. The temporary file is left in place for the viewer to read. An undefined or blank viewer, a program that cannot be found, and a program that fails to launch, dies on a signal, or exits non-zero are all fatal — there is no silent fallback to the console.
+
+Any further arguments are additional files to open alongside the preview, in the same viewer invocation; the CLI passes the mapping file here for C<--multipreview>. They require a real viewer (not C<console>) and must be readable, or the call dies.
 
 =head1 AUTHOR
 
@@ -33,6 +41,8 @@ use v5.34;
 
 use Path::Tiny;
 use Text::CSV;
+use File::Temp ();
+use File::Spec ();
 use Finance::Tiller2QIF::DB qw( connect_db );
 use utf8;
 use warnings FATAL => 'utf8';
@@ -102,7 +112,7 @@ sub Emit ( $db_path, $outfile, $verbose=0, $qifdate='ymd' ) {
 
 sub _trunc ( $str, $max ) { length($str) > $max ? substr( $str, 0, $max ) : $str }
 
-sub Preview ( $db_path, $verbose=0 ) {
+sub _preview_text ($db_path) {
   my ( $dbh, $accounts ) = _init($db_path);
 
   my @rows;
@@ -140,16 +150,75 @@ sub Preview ( $db_path, $verbose=0 ) {
   my $L2 = " %-30s | %-30s\n";
   my $div = '-' x 68;
 
-  printf $L1, 'Date', 'Amount', 'Account', 'Payee';
-  say "Category | Memo [Category preceded by original if changed by map]";
-  say $div;
+  my $text = sprintf $L1, 'Date', 'Amount', 'Account', 'Payee';
+  $text .= "Category | Memo [Category preceded by original if changed by map]\n";
+  $text .= "$div\n";
   for my $row (@rows) {
-    printf $L1, $row->{date}, $row->{amount}, $row->{account}, $row->{payee};
-    printf $L2, $row->{cat}, $row->{memo};
+    $text .= sprintf $L1, $row->{date}, $row->{amount}, $row->{account}, $row->{payee};
+    $text .= sprintf $L2, $row->{cat}, $row->{memo};
   }
 
   $dbh->disconnect;
-  return scalar @rows;
+  return ( scalar @rows, $text );
+}
+
+# Resolve a viewer specification ('less', 'code --wait', '/usr/bin/gedit') to
+# the command list to hand system(). Dies when the program can't be found.
+sub _resolve_viewer ($viewer) {
+  my @cmd = split ' ', $viewer;
+  die "preview viewer is empty; use 'console' to print to STDOUT\n" unless @cmd;
+  my $prog = $cmd[0];
+  if ( $prog =~ m{[/\\]} || File::Spec->file_name_is_absolute($prog) ) {
+    die "preview viewer '$prog' is not an executable file\n" unless -x $prog;
+    return @cmd;
+  }
+  # File::Spec->path splits PATH the way this OS does, and resolves an empty
+  # entry to '.' exactly as exec will.
+  for my $dir ( File::Spec->path ) {
+    return @cmd if -x File::Spec->catfile( $dir, $prog );
+  }
+  die "preview viewer '$prog' was not found in PATH\n";
+}
+
+sub _launch_viewer ( $viewer, $text, @also ) {
+  my @cmd = _resolve_viewer($viewer);
+  for my $extra (@also) {
+    die "preview cannot open '$extra': it does not exist or can't be read\n"
+      unless -r $extra;
+  }
+
+  my ( $fh, $file ) = File::Temp::tempfile(
+    'tiller2qif-preview-XXXXXXXX',
+    SUFFIX => '.t2qpv',
+    TMPDIR => 1,
+    UNLINK => 0,
+  );
+  binmode $fh, ':encoding(UTF-8)';
+  print {$fh} $text;
+  close $fh or die "unable to write preview file $file: $!\n";
+  chmod 0400, $file or die "unable to make preview file $file read-only: $!\n";
+
+  say "Preview written to $file";
+  say "Also opening: $_" for @also;
+  my $rc = system( @cmd, $file, @also );
+  die "preview viewer '$cmd[0]' failed to launch: $!\n" if $rc == -1;
+  die "preview viewer '$cmd[0]' died on signal ${\ ($rc & 127) }\n" if $rc & 127;
+  die "preview viewer '$cmd[0]' exited with status ${\ ($rc >> 8) }\n" if $rc;
+  return $file;
+}
+
+sub Preview ( $db_path, $verbose=0, $viewer='console', @also ) {
+  die "preview viewer is not set; use 'console' to print to STDOUT\n"
+    unless defined $viewer && $viewer =~ /\S/;
+  die "opening additional files requires a preview viewer, not 'console'\n"
+    if @also && lc $viewer eq 'console';
+
+  my ( $count, $text ) = _preview_text($db_path);
+
+  if ( lc $viewer eq 'console' ) { print $text }
+  else                           { _launch_viewer( $viewer, $text, @also ) }
+
+  return $count;
 }
 
 1;

@@ -41,7 +41,9 @@ sub _emit (%options) {
 }
 
 sub _preview (%options) {
-  Finance::Tiller2QIF::WriteQIF::Preview( $options{db_path}, $options{verbose} );
+  my @also = $options{multipreview} ? ( $options{mapfile} ) : ();
+  Finance::Tiller2QIF::WriteQIF::Preview( $options{db_path}, $options{verbose},
+    $options{viewer}, @also );
 }
 
 sub _run (%options) {
@@ -150,6 +152,10 @@ sub run_cli {
       [ 'aftermap=s',  "sql script to run after map" ],
       [ 'qifdate=s',   "QIF date format: ymd (default), mdy, or dmy" ],
       [ 'confirm',     "run preview before emit and confirm export"],
+      [ 'viewer=s',
+        "external program to view preview output (default: console)" ],
+      [ 'multipreview',
+        "also open the mapping file in the preview viewer" ],
       [ 'verbose|v',   "Print detailed progress information" ],
       [ 'version',     "Print the installed version and exit", { shortcircuit => 1 } ],
       [],
@@ -197,16 +203,18 @@ sub run_cli {
 
   # Precedence: defaults < config file < CLI args
   my %options = (
-    input      => undef,
-    output     => undef,
-    db         => undef,
-    mapfile    => undef,
-    beforemap  => undef,
-    aftermap   => undef,
-    qifdate    => 'ymd',
-    verbose    => 0,
-    checkpoint => 0,
-    confirm    => 0,
+    input          => undef,
+    output         => undef,
+    db             => undef,
+    mapfile        => undef,
+    beforemap      => undef,
+    aftermap       => undef,
+    qifdate        => 'ymd',
+    verbose        => 0,
+    checkpoint     => 0,
+    confirm        => 0,
+    viewer         => 'console',
+    multipreview   => 0,
   );
 
   if ( $opt->config ) {
@@ -222,6 +230,15 @@ sub run_cli {
     $options{$key} = $val if defined $val;
   }
   $options{checkpoint} = 1 if $cmd eq 'run';
+
+  die "--viewer must name a program or 'console'\n"
+    unless defined $options{viewer} && $options{viewer} =~ /\S/;
+
+  if ( $options{multipreview} ) {
+    die "--multipreview requires --viewer, the console can't open files\n"
+      if lc $options{viewer} eq 'console';
+    die "--multipreview requires --mapfile\n" unless $options{mapfile};
+  }
 
   vPrint( $options{verbose}, _version_text() );
 

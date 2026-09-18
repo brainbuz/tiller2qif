@@ -1,0 +1,64 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Tiller2QIF Preview",
+  "scopeName": "source.tiller-preview",
+  "patterns": [
+    { "include": "#primary-header" },
+    { "include": "#secondary-header" },
+    { "include": "#separator" },
+    { "include": "#transaction-primary" },
+    { "include": "#transaction-secondary" },
+    { "include": "#pipe-separator" }
+  ],
+  "repository": {
+    "primary-header": {
+      "match": "^(\\s*)(Date)(\\s*)(\\|)(\\s*)(Amount)(\\s*)(\\|)(\\s*)(Account)(\\s*)(\\|)(\\s*)(Payee)(\\s*)$",
+      "captures": {
+        "2": { "name": "entity.name.tag.field.tiller-preview" },
+        "4": { "name": "punctuation.separator.pipe.tiller-preview" },
+        "6": { "name": "entity.name.tag.field.tiller-preview" },
+        "8": { "name": "punctuation.separator.pipe.tiller-preview" },
+        "10": { "name": "entity.name.tag.field.tiller-preview" },
+        "12": { "name": "punctuation.separator.pipe.tiller-preview" },
+        "14": { "name": "entity.name.tag.field.tiller-preview" }
+      }
+    },
+    "secondary-header": {
+      "match": "^(\\s*)(Category)(\\s*)(\\|)(\\s*)(Memo)(\\s*)(\\[.*\\])(\\s*)$",
+      "captures": {
+        "2": { "name": "entity.name.tag.field.tiller-preview" },
+        "4": { "name": "punctuation.separator.pipe.tiller-preview" },
+        "6": { "name": "entity.name.tag.field.tiller-preview" },
+        "8": { "name": "comment.block.header.tiller-preview" }
+      }
+    },
+    "separator": {
+      "match": "^\\s*-{3,}\\s*$",
+      "name": "punctuation.separator.table.tiller-preview"
+    },
+    "transaction-primary": {
+      "match": "^(\\s*)(\\d{4}-\\d{2}-\\d{2})(\\s*)(\\|)(\\s*)([+-]?\\d+(?:\\.\\d+)?)(\\s*)(\\|)(\\s*)([^|]*?)(\\s*)(\\|)(\\s*)([^|]*?)(\\s*)$",
+      "captures": {
+        "2": { "name": "constant.numeric.date.tiller-preview" },
+        "4": { "name": "punctuation.separator.pipe.tiller-preview" },
+        "6": { "name": "constant.numeric.amount.tiller-preview" },
+        "8": { "name": "punctuation.separator.pipe.tiller-preview" },
+        "10": { "name": "variable.other.account.tiller-preview" },
+        "12": { "name": "punctuation.separator.pipe.tiller-preview" },
+        "14": { "name": "string.unquoted.payee.tiller-preview" }
+      }
+    },
+    "transaction-secondary": {
+      "match": "^(\\s*)([^|]*?)(\\s*)(\\|)(\\s*)(.*)$",
+      "captures": {
+        "2": { "name": "entity.name.type.category.tiller-preview" },
+        "4": { "name": "punctuation.separator.pipe.tiller-preview" },
+        "6": { "name": "string.unquoted.memo.tiller-preview" }
+      }
+    },
+    "pipe-separator": {
+      "match": "\\|",
+      "name": "punctuation.separator.pipe.tiller-preview"
+    }
+  }
+}

@@ -372,6 +372,163 @@ subtest cli_preview => sub {
   like( $out, qr/pending export/, 'preview output mentions pending export' );
 };
 
+subtest cli_viewer => sub {
+  my $db_path = uniqfile( 'cli_pvviewer', 'sqlite3' );
+  my $csvfile = uniqfile( 'cli_pvviewer', 'csv' );
+  my $marker  = uniqfile( 'cli_pvviewer_marker', 'txt' );
+  my $script  = uniqfile( 'cli_pvviewer_stub',   'pl' );
+  freshdb($db_path)->disconnect;
+  freshcsv( $csvfile, '04/25/2026,1,Checking,10.00,Test,Test,Food' );
+  Finance::Tiller2QIF::_ingest( input => $csvfile, db_path => $db_path );
+  path($script)->spew_utf8( <<"STUB" );
+use v5.36;
+open my \$in,  '<:encoding(UTF-8)', \$ARGV[0] or die "stub viewer: \$!";
+open my \$out, '>:encoding(UTF-8)', '$marker' or die "stub viewer: \$!";
+print {\$out} "\$ARGV[0]\\n", <\$in>;
+STUB
+
+  local @ARGV = ( 'preview', '--db', $db_path, '--viewer', "$^X $script" );
+  my $out = '';
+  ok( lives { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
+    '--viewer returns normally' );
+  like( $out, qr/Preview written to \S+\.t2qpv/, 'reports the preview file path' );
+  like( $out, qr/pending export/, 'still reports the pending count' );
+  unlike( $out, qr/Checking/, 'preview table went to the viewer, not STDOUT' );
+  ok( -e $marker, 'viewer was launched with the preview file' );
+  like( path($marker)->slurp_utf8, qr/Checking/, 'viewer received the preview table' );
+  unlink $1 if $out =~ /Preview written to (\S+)/;
+};
+
+subtest cli_viewer_errors => sub {
+  my $db_path = uniqfile( 'cli_pvbad', 'sqlite3' );
+  my $csvfile = uniqfile( 'cli_pvbad', 'csv' );
+  freshdb($db_path)->disconnect;
+  freshcsv( $csvfile, '04/25/2026,1,Checking,10.00,Test,Test,Food' );
+  Finance::Tiller2QIF::_ingest( input => $csvfile, db_path => $db_path );
+
+  my $out = '';
+  {
+    local @ARGV = ( 'preview', '--db', $db_path, '--viewer', 'nosuchprog-xyz' );
+    like(
+      dies { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
+      qr/'nosuchprog-xyz' was not found in PATH/,
+      'unknown --viewer is fatal' );
+  }
+  {
+    local @ARGV = ( 'preview', '--db', $db_path, '--viewer', '' );
+    like(
+      dies { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
+      qr/must name a program or 'console'/,
+      'empty --viewer is fatal' );
+  }
+
+  my $cfgfile = uniqfile( 'cli_pvbad', 'json' );
+  path($cfgfile)->spew_utf8(
+    qq|{ "db": "$db_path", "viewer": "" }| );
+  {
+    local @ARGV = ( 'preview', '--config', $cfgfile );
+    like(
+      dies { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
+      qr/must name a program or 'console'/,
+      'empty viewer in a config file is fatal' );
+  }
+};
+
+subtest cli_multipreview => sub {
+  my $db_path = uniqfile( 'cli_multi', 'sqlite3' );
+  my $csvfile = uniqfile( 'cli_multi', 'csv' );
+  my $mapfile = uniqfile( 'cli_multi', 'map' );
+  my $marker  = uniqfile( 'cli_multi_marker', 'txt' );
+  my $script  = uniqfile( 'cli_multi_stub',   'pl' );
+  freshdb($db_path)->disconnect;
+  freshcsv( $csvfile, '04/25/2026,1,Checking,10.00,Test,Test,Food' );
+  freshmap( $mapfile, 'category | Food | Expenses:Food' );
+  Finance::Tiller2QIF::_ingest( input => $csvfile, db_path => $db_path );
+  # stub viewer: records every file it was handed
+  path($script)->spew_utf8( <<"STUB" );
+use v5.36;
+open my \$out, '>:encoding(UTF-8)', '$marker' or die "stub viewer: \$!";
+print {\$out} join( "\\n", \@ARGV ), "\\n";
+STUB
+
+  my $out = '';
+  {
+    local @ARGV = ( 'preview', '--db', $db_path, '--mapfile', $mapfile,
+      '--viewer', "$^X $script", '--multipreview' );
+    ok( lives { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
+      '--multipreview returns normally' );
+  }
+  like( $out, qr/\QAlso opening: $mapfile\E/, 'reports the mapping file it opened' );
+  my @opened = path($marker)->lines_utf8( { chomp => 1 } );
+  is( scalar @opened, 2, 'viewer was handed two files in one invocation' );
+  like( $opened[0], qr/\.t2qpv$/, 'preview file first' );
+  is( $opened[1], $mapfile, 'mapping file second' );
+  unlink $opened[0];
+
+  {
+    local @ARGV = ( 'preview', '--db', $db_path, '--mapfile', $mapfile, '--multipreview' );
+    like(
+      dies { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
+      qr/--multipreview requires --viewer/,
+      '--multipreview without a viewer is fatal' );
+  }
+  {
+    local @ARGV = ( 'preview', '--db', $db_path,
+      '--viewer', "$^X $script", '--multipreview' );
+    like(
+      dies { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
+      qr/--multipreview requires --mapfile/,
+      '--multipreview without a mapfile is fatal' );
+  }
+  {
+    local @ARGV = ( 'preview', '--db', $db_path, '--mapfile', 'no/such.map',
+      '--viewer', "$^X $script", '--multipreview' );
+    like(
+      dies { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
+      qr/preview cannot open 'no\/such\.map'/,
+      '--multipreview with an unreadable mapfile is fatal' );
+    unlink $1 if $out =~ /Preview written to (\S+)/;
+  }
+};
+
+subtest cli_viewer_config => sub {
+  my $db_path = uniqfile( 'cli_pvcfg', 'sqlite3' );
+  my $csvfile = uniqfile( 'cli_pvcfg', 'csv' );
+  my $cfgfile = uniqfile( 'cli_pvcfg', 'json' );
+  my $marker  = uniqfile( 'cli_pvcfg_marker', 'txt' );
+  my $script  = uniqfile( 'cli_pvcfg_stub',   'pl' );
+  freshdb($db_path)->disconnect;
+  freshcsv( $csvfile, '04/25/2026,1,Checking,10.00,Test,Test,Food' );
+  Finance::Tiller2QIF::_ingest( input => $csvfile, db_path => $db_path );
+  path($script)->spew_utf8( <<"STUB" );
+use v5.36;
+open my \$out, '>:encoding(UTF-8)', '$marker' or die "stub viewer: \$!";
+print {\$out} "\$ARGV[0]\\n";
+STUB
+  path($cfgfile)->spew_utf8(
+    qq|{ "db": "$db_path", "viewer": "$^X $script" }| );
+
+  my $out = '';
+  {
+    local @ARGV = ( 'preview', '--config', $cfgfile );
+    ok( lives { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
+      'viewer from config file runs' );
+  }
+  like( $out, qr/Preview written to /, 'config file viewer was used' );
+  ok( -e $marker, 'config file viewer was launched' );
+  unlink $1 if $out =~ /Preview written to (\S+)/;
+
+  # command line beats the config file
+  $out = '';
+  {
+    local @ARGV = ( 'preview', '--config', $cfgfile, '--viewer', 'console' );
+    ok( lives { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
+      '--viewer console overrides the config file' );
+  }
+  unlike( $out, qr/Preview written to /, 'console on the command line wins' );
+  like( $out, qr/Checking/, 'preview printed to STDOUT' );
+};
+
 subtest cli_confirm_yes => sub {
   my $db_path = uniqfile( 'cli_confirm_y', 'sqlite3' );
   my $csvfile = uniqfile( 'cli_confirm_y', 'csv' );
