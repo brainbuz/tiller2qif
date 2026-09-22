@@ -27,6 +27,16 @@ C<$viewer> selects where the table goes. The default, C<console>, prints to STDO
 
 Any further arguments are additional files to open alongside the preview, in the same viewer invocation; the CLI passes the mapping file here for C<--multipreview>. They require a real viewer (not C<console>) and must be readable, or the call dies.
 
+=head2 ResolveViewer
+
+  my @command = Finance::Tiller2QIF::WriteQIF::ResolveViewer( $viewer );
+
+Resolve a viewer specification to the command list that would be run, dying with the reason when it cannot be resolved. The specification is split on whitespace: the first word is the program and any remaining words are arguments placed before the file names. A program containing a path separator is used as given and must be executable; a bare program name is looked up along C<PATH>.
+
+Because the specification is split on whitespace, the program's own path cannot contain spaces. Point C<$viewer> at a wrapper script or a symlink when the program you want lives in such a path.
+
+C<Preview> calls this before it writes anything, so an unusable viewer fails before a temporary file is created. C<checkconfig> calls it to report an unusable viewer before any work begins.
+
 =head1 AUTHOR
 
 John Karr E<lt>brainbuz@cpan.orgE<gt>
@@ -162,9 +172,7 @@ sub _preview_text ($db_path) {
   return ( scalar @rows, $text );
 }
 
-# Resolve a viewer specification ('less', 'code --wait', '/usr/bin/gedit') to
-# the command list to hand system(). Dies when the program can't be found.
-sub _resolve_viewer ($viewer) {
+sub ResolveViewer ($viewer) {
   my @cmd = split ' ', $viewer;
   die "preview viewer is empty; use 'console' to print to STDOUT\n" unless @cmd;
   my $prog = $cmd[0];
@@ -181,7 +189,7 @@ sub _resolve_viewer ($viewer) {
 }
 
 sub _launch_viewer ( $viewer, $text, @also ) {
-  my @cmd = _resolve_viewer($viewer);
+  my @cmd = ResolveViewer($viewer);
   for my $extra (@also) {
     die "preview cannot open '$extra': it does not exist or can't be read\n"
       unless -r $extra;

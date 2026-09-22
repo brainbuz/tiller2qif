@@ -126,7 +126,6 @@ my $badcmdhelp = <<'BADCMD';
 There was an error in your command line.
 Common causes are:
 * mistyping an option
-* command after options
 * accidental text in the line
 
 BADCMD
@@ -174,6 +173,15 @@ sub run_cli {
     say _version_text();
     return;
   }
+
+  # Getopt::Long permutes @ARGV, so a command word given after the options
+  # is left behind here rather than eaten as an option value; pick it up
+  # if the pre-parse grab above didn't already find one.
+  if ( !$cmd && @ARGV && $ARGV[0] !~ /^-/ ) {
+    $cmd = lc shift @ARGV;
+  }
+
+  die "tiller2qif: unexpected argument(s): @ARGV\n$badcmdhelp" if @ARGV;
 
   if ( !$cmd ) {
     die

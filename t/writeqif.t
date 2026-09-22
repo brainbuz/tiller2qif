@@ -3,6 +3,7 @@ use warnings;
 use Test2::V0;
 use Test2::Bundle::More;
 use Path::Tiny;
+use File::Spec;
 use Finance::Tiller2QIF::ReadCSV;
 use Finance::Tiller2QIF::Map;
 use Finance::Tiller2QIF::WriteQIF;
@@ -215,6 +216,28 @@ subtest preview => sub {
   like( $output, qr/Unmapped/, 'Preview shows unmapped category when mapped_category is NULL' );
 
   $db->disconnect;
+};
+
+subtest resolve_viewer => sub {
+  # NOTE: is() here is Test::More's scalar compare (Test2::Bundle::More is
+  # imported after Test2::V0), so compare the command list as a joined string.
+  is( join( ' ', Finance::Tiller2QIF::WriteQIF::ResolveViewer($^X) ),
+    $^X, 'an absolute path resolves to itself' );
+
+  is( join( ' ', Finance::Tiller2QIF::WriteQIF::ResolveViewer("$^X -w") ),
+    "$^X -w", 'arguments are kept after the program' );
+
+  my ($perl_name) = $^X =~ m{([^/]+)$};
+  ok( lives { Finance::Tiller2QIF::WriteQIF::ResolveViewer($perl_name) },
+    'a bare program name is found on PATH' )
+    if grep { -x "$_/$perl_name" } File::Spec->path;
+
+  like( dies { Finance::Tiller2QIF::WriteQIF::ResolveViewer('nosuchprog-xyz') },
+    qr/was not found in PATH/, 'an unknown program dies' );
+  like( dies { Finance::Tiller2QIF::WriteQIF::ResolveViewer('/no/such/viewer') },
+    qr/is not an executable file/, 'an unusable path dies' );
+  like( dies { Finance::Tiller2QIF::WriteQIF::ResolveViewer('   ') },
+    qr/viewer is empty/, 'a blank specification dies' );
 };
 
 subtest preview_viewer => sub {

@@ -151,6 +151,59 @@ subtest cli_run => sub {
   ok( -e $qiffile, 'cli run produced QIF file' );
 };
 
+subtest cli_command_after_options => sub {
+  my $db_path = uniqfile( 'cli_cmdafter', 'sqlite3' );
+  my $csvfile = uniqfile( 'cli_cmdafter', 'csv' );
+  my $qiffile = uniqfile( 'cli_cmdafter', 'qif' );
+  freshdb($db_path)->disconnect;
+  freshcsv( $csvfile, '04/25/2026,1,Checking,75.00,Deposit,Salary,Income' );
+  local @ARGV = ( '--input', $csvfile, '--db', $db_path, '--output', $qiffile, 'run' );
+  ok( lives { Finance::Tiller2QIF::run_cli() }, 'cli run with command after options returns normally' );
+  ok( -e $qiffile, 'cli run with command after options produced QIF file' );
+};
+
+subtest cli_command_last_newdb => sub {
+  my $db_path = uniqfile( 'cli_newdbafter', 'sqlite3' );
+  local @ARGV = ( '--db', $db_path, 'newdb' );
+  ok( lives { Finance::Tiller2QIF::run_cli() }, 'newdb with command after --db returns normally' );
+  ok( -s $db_path, 'newdb with command last created the database file' );
+};
+
+subtest cli_unknown_command_after_options => sub {
+  local @ARGV = ( '--db', 'x.sqlite3', 'notacommand' );
+  like(
+    dies { Finance::Tiller2QIF::run_cli() },
+    qr/Unknown command/,
+    'unknown command after options dies'
+  );
+};
+
+subtest cli_extra_stray_argument => sub {
+  local @ARGV = ( 'run', 'stray', '--db', 'x.sqlite3' );
+  like(
+    dies { Finance::Tiller2QIF::run_cli() },
+    qr/unexpected argument/,
+    'stray argument after command and options dies'
+  );
+};
+
+subtest cli_options_only_missing_command => sub {
+  local @ARGV = ( '--db', 'x.sqlite3' );
+  like(
+    dies { Finance::Tiller2QIF::run_cli() },
+    qr/Command Missing!/,
+    'options with no command still dies with Command Missing!'
+  );
+};
+
+subtest cli_help_extra => sub {
+  local @ARGV = ( '--help', 'extra' );
+  my $out = '';
+  ok( lives { open( local *STDOUT, '>', \$out ); Finance::Tiller2QIF::run_cli() },
+    '--help with trailing extra argument still returns normally' );
+  like( $out, qr/tiller2qif/, '--help with trailing extra argument prints usage' );
+};
+
 subtest cli_run_beforeafter => sub {
   my $db_path = uniqfile( 'cli_bfaf', 'sqlite3' );
   my $csvfile = uniqfile( 'cli_bfaf', 'csv' );

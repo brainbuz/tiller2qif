@@ -67,6 +67,8 @@ tiller2qif works with Strawberry Perl, after installing Strawberry Perl, install
 
 # CLI COMMANDS
 
+The command word may be given either before or after the options; any other stray argument on the command line is an error.
+
 - **run** -- ingest, map, and emit in one step
 
         tiller2qif run --input export.csv --db tiller.sqlite3 \
@@ -166,7 +168,7 @@ The `run` command always checkpoints, even without this flag.
 confirmation before writing the QIF file. When used with `--checkpoint`, adds
 a revert option (press `r`) to restore the database to its checkpoint state,
 useful if you want to undo changes made during ingest or mapping.
-- **--viewer** Program used to display preview output. The default, `console`, prints the preview to STDOUT. Any other value names an external program, and may include arguments, for example `less`, `gedit`, or `code --wait`. The preview is written to a read-only temporary file named `tiller2qif-preview-*.t2qpv`, the program is launched with that file as its argument, and the path is printed so you can find or reopen it. The temporary file is left in place, because graphical editors typically fork and return immediately; ask them to wait (`code --wait`) when you want the export prompt to appear only after you close the preview. A viewer that cannot be found, fails to launch, is killed by a signal, or exits non-zero is a fatal error rather than a fall back to the console. In a config file the key is `viewer`.
+- **--viewer** Program used to display preview output. The default, `console`, prints the preview to STDOUT. Any other value names an external program, and may include arguments, for example `less`, `gedit`, or `code --wait`. The value is split on whitespace — first word the program, the rest arguments — so the program's own path cannot contain spaces; point `--viewer` at a wrapper script or a symlink if yours does. The preview is written to a read-only temporary file named `tiller2qif-preview-*.t2qpv`, the program is launched with that file as its argument, and the path is printed so you can find or reopen it. The temporary file is left in place, because graphical editors typically fork and return immediately; ask them to wait (`code --wait`) when you want the export prompt to appear only after you close the preview. A viewer that cannot be found, fails to launch, is killed by a signal, or exits non-zero is a fatal error rather than a fall back to the console. In a config file the key is `viewer`.
 - **--multipreview** Open the mapping file in the preview viewer alongside the preview itself, so you can read the pending transactions and edit the rules that produced them side by side. Both files are passed to a single invocation of the viewer. This requires `--viewer` and `--mapfile`; asking for it with the console viewer or without a mapping file is an error rather than a silent no-op. In a config file the key is `multipreview`.
 - **--verbose** Print detailed progress information during each phase.  Also
 runs `checkconfig` automatically before any operations begin.
@@ -277,7 +279,9 @@ If the `default` line is omitted, unmatched transactions behave as
 
 # VS CODE EXTENSION
 
-The repository includes a Visual Studio Code extension, `vscode-tiller-map/`, which highlights mapping files and preview files and completes destination account names from your chart of accounts. It is not published to the Marketplace and is not part of the CPAN distribution, so it is installed from a checkout of the repository.
+The repository includes a Visual Studio Code extension, `vscode-tiller-map/`, which highlights mapping files and preview files and completes destination account names from your chart of accounts. It is not published to the Marketplace, it can only be installed from a checkout of the repository.
+
+With **--viewer code** and **--multipreview** the actions **preview** and **run** will open the preview and map file in vscode
 
 ## Installation
 
@@ -286,21 +290,19 @@ The repository includes a Visual Studio Code extension, `vscode-tiller-map/`, wh
     # or, to track the checkout:
     ln -s "$PWD/tiller2qif/vscode-tiller-map" ~/.vscode/extensions/
 
-Reload the VS Code window afterwards.
+Reload VS Code afterwards.
 
 ## Syntax Highlighting
 
-Mapping files are recognised by the `.map` and `.mapping` extensions and by the name `tiller.mapping`. Preview files are recognised by the `.t2qpv` extension, which is what `--viewer` writes, so a preview opened in VS Code is highlighted the same way.
+Files with `.map` and `.mapping` extensions are recognized as mappings, preview files have the `t2qpv` extension.
 
-## Chart of Accounts Completion
+## Completion Hinting
 
-The destination column of a mapping rule offers `source`, `blank`, and `skip`, and can also offer the real account names from your accounting program. That comes from the extension's settings, not from tiller2qif: set `tiller2qifMap.coaPath` to a chart-of-accounts export (a leading `~` is expanded). Without it, completion still offers the three keywords.
-
-`tiller2qifMap.coaFormat` selects how that file is read.  It defaults to `auto`, which detects the format; set it explicitly if detection picks the wrong loader. Only the GnuCash chart-of-accounts CSV export is built in today — see `loaders/index.js` in the extension source for the loader contract if you want to add another program's export.
+In addition to completion of Tiller2QIF keywords you can also configure your Chart of Accounts for Completion! The extension's settings `tiller2qifMap.coaPath` and `tiller2qifMap.coaFormat` control this. Currently the only available coaFormat is `gnucash-csv`.
 
 ## Row Colors
 
-`tiller2qifMap.rowColors` controls row backgrounds in both file types. `rainbow`, the default, gives rows a repeating series of subtle background colors; `none` turns backgrounds off. A preview transaction occupies two lines, and both receive the same color.
+`tiller2qifMap.rowColors` controls row backgrounds in both file types. `rainbow`, the default, gives rows a repeating series of subtle background colors; `none` turns backgrounds off. A preview transaction occupies two lines, both receive the same color.
 
 # Advanced Use
 

@@ -165,7 +165,7 @@ sub CheckConfig (%options) {
   if ( defined $options{viewer}
     && lc $options{viewer} ne 'console' )
   {
-    eval { Finance::Tiller2QIF::WriteQIF::_resolve_viewer( $options{viewer} ); 1 }
+    eval { Finance::Tiller2QIF::WriteQIF::ResolveViewer( $options{viewer} ); 1 }
       or do { chomp( my $err = $@ ); say "Problem: $err" };
   }
 }
