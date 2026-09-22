@@ -1,0 +1,66 @@
+{
+  "name": "tiller2qif-map-syntax",
+  "displayName": "Tiller2QIF Syntax",
+  "description": "Syntax highlighting for Finance::Tiller2QIF mapping and preview files, with chart-of-accounts completion",
+  "version": "0.2.0",
+  "publisher": "local",
+  "engines": { "vscode": "^1.60.0" },
+  "categories": ["Programming Languages"],
+  "main": "./extension.js",
+  "activationEvents": ["onLanguage:tiller2qif-map", "onLanguage:tiller2qif-preview"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "tiller2qif-map",
+        "aliases": ["Tiller2QIF Map", "tiller-map"],
+        "extensions": [".map", ".mapping"],
+        "filenames": ["tiller.mapping"],
+        "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "tiller2qif-preview",
+        "aliases": ["Tiller2QIF Preview", "tiller-preview"],
+        "extensions": [".t2qpv"]
+      }
+    ],
+    "grammars": [
+      {
+        "language": "tiller2qif-map",
+        "scopeName": "source.tiller-map",
+        "path": "./syntaxes/tiller-map.tmLanguage.json"
+      },
+      {
+        "language": "tiller2qif-preview",
+        "scopeName": "source.tiller-preview",
+        "path": "./syntaxes/tiller-preview.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "Tiller2QIF",
+      "properties": {
+        "tiller2qifMap.coaPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to a chart-of-accounts export. When set, the destination column of map rules offers completions from this file. Supports a leading ~ for your home directory."
+        },
+        "tiller2qifMap.coaFormat": {
+          "type": "string",
+          "default": "auto",
+          "enum": ["auto", "gnucash-csv"],
+          "enumDescriptions": ["Detect the format automatically from the file", "GnuCash chart-of-accounts CSV export"],
+          "description": "Format of the tiller2qifMap.coaPath export. \"auto\" detects it from the file; set this explicitly if detection picks the wrong loader. Only GnuCash CSV is built in today — see loaders/index.js in the extension source to contribute support for another program's export."
+        },
+        "tiller2qifMap.rowColors": {
+          "type": "string",
+          "default": "rainbow",
+          "enum": ["rainbow", "none"],
+          "enumDescriptions": [
+            "Use a repeating rainbow of subtle background colors",
+            "Do not add row backgrounds"
+          ],
+          "description": "Background styling for mapping rules and preview transactions. A preview transaction's two lines receive the same color."
+        }
+      }
+    }
+  }
+}

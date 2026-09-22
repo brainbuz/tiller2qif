@@ -10,3 +10,4 @@ cspell.json
 *.gz
 Finance-Tiller2QIF*
 *.tmp
+.claude/*

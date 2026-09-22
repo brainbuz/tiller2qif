@@ -1,0 +1,89 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Tiller2QIF Map",
+  "scopeName": "source.tiller-map",
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#account-filter" },
+    { "include": "#default-keyword" },
+    { "include": "#field-keyword" },
+    { "include": "#regexp-pattern" },
+    { "include": "#wildcard-pattern" },
+    { "include": "#destination-keyword" },
+    { "include": "#destination-path" },
+    { "include": "#unquoted-pattern-field" },
+    { "include": "#pipe-separator" }
+  ],
+  "repository": {
+    "comment": {
+      "match": "^\\s*#.*$",
+      "name": "comment.line.number-sign.tiller-map"
+    },
+    "account-filter": {
+      "match": "^(\\s*)(\\[)([^\\]]+)(\\])",
+      "captures": {
+        "2": { "name": "punctuation.definition.bracket.account-filter.tiller-map" },
+        "3": {
+          "name": "entity.name.tag.account-filter.tiller-map",
+          "patterns": [
+            { "match": "\\|", "name": "punctuation.separator.pipe.account-filter.tiller-map" }
+          ]
+        },
+        "4": { "name": "punctuation.definition.bracket.account-filter.tiller-map" }
+      }
+    },
+    "default-keyword": {
+      "match": "^\\s*(default)\\b(?=\\s*\\|)",
+      "captures": {
+        "1": { "name": "keyword.control.default.tiller-map" }
+      }
+    },
+    "field-keyword": {
+      "match": "\\b(category|payee|memo|account|date|amount)\\b(?=\\s*\\|)",
+      "name": "keyword.other.field.tiller-map"
+    },
+    "regexp-pattern": {
+      "match": "/(?:[^/\\\\]|\\\\.)*/",
+      "name": "string.regexp.tiller-map"
+    },
+    "wildcard-pattern": {
+      "match": "(?<=\\|)\\s*(\\*)\\s*(?=\\|)",
+      "captures": {
+        "1": { "name": "keyword.other.wildcard.tiller-map" }
+      }
+    },
+    "destination-keyword": {
+      "match": "(?<=\\|)\\s*(source|blank|skip)\\s*$",
+      "captures": {
+        "1": { "name": "keyword.constant.destination.tiller-map" }
+      }
+    },
+    "destination-path": {
+      "match": "(?<=\\|)\\s*((?:\\\\.|[^|])+?)\\s*$",
+      "captures": {
+        "1": {
+          "name": "entity.name.type.destination.tiller-map",
+          "patterns": [
+            { "match": ":", "name": "punctuation.separator.colon.tiller-map" },
+            { "match": "\\\\.", "name": "constant.character.escape.tiller-map" }
+          ]
+        }
+      }
+    },
+    "unquoted-pattern-field": {
+      "match": "(?<=\\|)(?!\\s*/)\\s*((?:\\\\.|[^|])+?)\\s*(?=\\|)",
+      "captures": {
+        "1": {
+          "name": "string.unquoted.pattern.tiller-map",
+          "patterns": [
+            { "match": "\\\\.", "name": "constant.character.escape.tiller-map" }
+          ]
+        }
+      }
+    },
+    "pipe-separator": {
+      "match": "(?<!\\\\)\\|",
+      "name": "punctuation.separator.pipe.tiller-map"
+    }
+  }
+}
