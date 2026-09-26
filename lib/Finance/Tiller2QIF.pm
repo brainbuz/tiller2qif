@@ -1,7 +1,7 @@
 package Finance::Tiller2QIF;
 # ABSTRACT: Convert Tiller CSV exports to QIF format
 
-use v5.34;
+use 5.036;
 use strict;
 use warnings;
 use utf8;
@@ -239,13 +239,18 @@ sub run_cli {
   }
   $options{checkpoint} = 1 if $cmd eq 'run';
 
-  die "--viewer must name a program or 'console'\n"
-    unless defined $options{viewer} && $options{viewer} =~ /\S/;
+  # Only validate the viewer when this command will actually use it —
+  # otherwise a blank/odd viewer in a shared config file would block
+  # unrelated commands like newdb or ingest that never touch it.
+  if ( $cmd eq 'preview' || ( $cmd =~ /^(?:emit|run)$/ && $options{confirm} ) ) {
+    die "--viewer must name a program or 'console'\n"
+      unless defined $options{viewer} && $options{viewer} =~ /\S/;
 
-  if ( $options{multipreview} ) {
-    die "--multipreview requires --viewer, the console can't open files\n"
-      if lc $options{viewer} eq 'console';
-    die "--multipreview requires --mapfile\n" unless $options{mapfile};
+    if ( $options{multipreview} ) {
+      die "--multipreview requires --viewer, the console can't open files\n"
+        if lc $options{viewer} eq 'console';
+      die "--multipreview requires --mapfile\n" unless $options{mapfile};
+    }
   }
 
   vPrint( $options{verbose}, _version_text() );

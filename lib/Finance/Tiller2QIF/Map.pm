@@ -31,7 +31,7 @@ GPL version 3 or later.
 
 =cut
 
-use v5.34;
+use 5.036;
 
 use Finance::Tiller2QIF::DB qw( connect_db );
 use Path::Tiny;

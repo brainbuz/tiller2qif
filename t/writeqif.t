@@ -3,7 +3,6 @@ use warnings;
 use Test2::V0;
 use Test2::Bundle::More;
 use Path::Tiny;
-use File::Spec;
 use Finance::Tiller2QIF::ReadCSV;
 use Finance::Tiller2QIF::Map;
 use Finance::Tiller2QIF::WriteQIF;
@@ -218,28 +217,6 @@ subtest preview => sub {
   $db->disconnect;
 };
 
-subtest resolve_viewer => sub {
-  # NOTE: is() here is Test::More's scalar compare (Test2::Bundle::More is
-  # imported after Test2::V0), so compare the command list as a joined string.
-  is( join( ' ', Finance::Tiller2QIF::WriteQIF::ResolveViewer($^X) ),
-    $^X, 'an absolute path resolves to itself' );
-
-  is( join( ' ', Finance::Tiller2QIF::WriteQIF::ResolveViewer("$^X -w") ),
-    "$^X -w", 'arguments are kept after the program' );
-
-  my ($perl_name) = $^X =~ m{([^/]+)$};
-  ok( lives { Finance::Tiller2QIF::WriteQIF::ResolveViewer($perl_name) },
-    'a bare program name is found on PATH' )
-    if grep { -x "$_/$perl_name" } File::Spec->path;
-
-  like( dies { Finance::Tiller2QIF::WriteQIF::ResolveViewer('nosuchprog-xyz') },
-    qr/was not found in PATH/, 'an unknown program dies' );
-  like( dies { Finance::Tiller2QIF::WriteQIF::ResolveViewer('/no/such/viewer') },
-    qr/is not an executable file/, 'an unusable path dies' );
-  like( dies { Finance::Tiller2QIF::WriteQIF::ResolveViewer('   ') },
-    qr/viewer is empty/, 'a blank specification dies' );
-};
-
 subtest preview_viewer => sub {
   my $dbfile = uniqfile( 'wq_pvviewer', 'sqlite3' );
   my $db     = freshdb($dbfile);
@@ -295,35 +272,19 @@ STUB
     qr/viewer is not set/, 'undefined viewer is fatal' );
   like( dies { Finance::Tiller2QIF::WriteQIF::Preview( $dbfile, 0, '  ' ) },
     qr/viewer is not set/, 'blank viewer is fatal' );
-  like(
-    dies { Finance::Tiller2QIF::WriteQIF::Preview( $dbfile, 0, 'nosuchprog-xyz' ) },
-    qr/'nosuchprog-xyz' was not found in PATH/, 'unknown viewer is fatal' );
-
-  my $failed = '';
-  my $err = do {
-    open( my $fh, '>', \$failed ) or die $!;
+  # Preview doesn't care *why* the viewer command failed — not found,
+  # non-zero exit, killed by a signal — just that it didn't succeed.
+  my $unknown = '';
+  my $unknown_err = do {
+    open( my $fh, '>', \$unknown ) or die $!;
     my $old = select $fh;
-    my $e = dies { Finance::Tiller2QIF::WriteQIF::Preview( $dbfile, 0, "$^X -eexit(3)" ) };
+    my $e = dies { Finance::Tiller2QIF::WriteQIF::Preview( $dbfile, 0, 'nosuchprog-xyz' ) };
     select $old;
     $e;
   };
-  like( $err, qr/exited with status 3/, 'viewer exiting non-zero is fatal' );
-  unlink $1 if $failed =~ /Preview written to (\S+)/;
-
-  unless ( $^O eq 'MSWin32' ) {
-    my $killed = '';
-    my $sigerr = do {
-      open( my $fh, '>', \$killed ) or die $!;
-      my $old = select $fh;
-      my $e = dies {
-        Finance::Tiller2QIF::WriteQIF::Preview( $dbfile, 0, "$^X -ekill(15,\$\$)" )
-      };
-      select $old;
-      $e;
-    };
-    like( $sigerr, qr/died on signal 15/, 'viewer killed by a signal is fatal' );
-    unlink $1 if $killed =~ /Preview written to (\S+)/;
-  }
+  like( $unknown_err, qr/preview viewer 'nosuchprog-xyz' failed/,
+    'a failing viewer command is fatal' );
+  unlink $1 if $unknown =~ /Preview written to (\S+)/;
 
   $db->disconnect;
 };

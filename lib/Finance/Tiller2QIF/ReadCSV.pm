@@ -23,7 +23,7 @@ GPL version 3 or later.
 
 =cut
 
-use v5.34;
+use 5.036;
 
 use Path::Tiny;
 use Text::CSV;

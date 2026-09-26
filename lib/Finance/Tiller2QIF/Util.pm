@@ -44,7 +44,7 @@ GPL version 3 or later.
 
 =cut
 
-use v5.34;
+use 5.036;
 
 use Exporter 'import';
 our @EXPORT_OK = qw( vPrint );
@@ -52,7 +52,6 @@ our @EXPORT_OK = qw( vPrint );
 use Path::Tiny;
 use Text::CSV;
 use Finance::Tiller2QIF::DB qw( connect_db );
-use Finance::Tiller2QIF::WriteQIF;
 use utf8;
 use warnings FATAL => 'utf8';
 use open ':std', ':encoding(UTF-8)';
@@ -161,12 +160,6 @@ sub CheckConfig (%options) {
     unless ( -w path( $options{output} )->parent ) {
       say "Problem ${options{output}} parent directory is not writable";
     }
-  }
-  if ( defined $options{viewer}
-    && lc $options{viewer} ne 'console' )
-  {
-    eval { Finance::Tiller2QIF::WriteQIF::ResolveViewer( $options{viewer} ); 1 }
-      or do { chomp( my $err = $@ ); say "Problem: $err" };
   }
 }
 
