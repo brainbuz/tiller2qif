@@ -1,7 +1,7 @@
 package Finance::Tiller2QIF::DB;
 # ABSTRACT: SQLite connection helper
 
-use v5.34;
+use 5.036;
 
 use DBI;
 use Exporter 'import';

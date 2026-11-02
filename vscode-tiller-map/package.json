@@ -2,12 +2,13 @@
   "name": "tiller2qif-map-syntax",
   "displayName": "Tiller2QIF Syntax",
   "description": "Syntax highlighting for Finance::Tiller2QIF mapping and preview files, with chart-of-accounts completion",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "local",
   "engines": { "vscode": "^1.60.0" },
   "categories": ["Programming Languages"],
   "main": "./extension.js",
-  "activationEvents": ["onLanguage:tiller2qif-map", "onLanguage:tiller2qif-preview"],
+  "activationEvents": ["onLanguage:tiller2qif-map", "onLanguage:tiller2qif-preview", "onLanguage:tiller2qif-sql"],
+  "scripts": { "test": "node --test test/*.test.js" },
   "contributes": {
     "languages": [
       {
@@ -21,6 +22,12 @@
         "id": "tiller2qif-preview",
         "aliases": ["Tiller2QIF Preview", "tiller-preview"],
         "extensions": [".t2qpv"]
+      },
+      {
+        "id": "tiller2qif-sql",
+        "aliases": ["Tiller2QIF SQL", "tiller-sql"],
+        "extensions": [".t2qsql"],
+        "configuration": "./sql-language-configuration.json"
       }
     ],
     "grammars": [
@@ -33,15 +40,26 @@
         "language": "tiller2qif-preview",
         "scopeName": "source.tiller-preview",
         "path": "./syntaxes/tiller-preview.tmLanguage.json"
+      },
+      {
+        "language": "tiller2qif-sql",
+        "scopeName": "source.tiller-sql",
+        "path": "./syntaxes/tiller-sql.tmLanguage.json"
       }
     ],
+    "configurationDefaults": {
+      "[tiller2qif-sql]": {
+        "editor.quickSuggestions": { "other": true, "comments": false, "strings": true }
+      },
+      "[tiller2qif-preview]": { "editor.wordWrap": "on" }
+    },
     "configuration": {
       "title": "Tiller2QIF",
       "properties": {
         "tiller2qifMap.coaPath": {
           "type": "string",
           "default": "",
-          "description": "Path to a chart-of-accounts export. When set, the destination column of map rules offers completions from this file. Supports a leading ~ for your home directory."
+          "description": "Path to a chart-of-accounts export. Used for map destinations and account/category values in Tiller2QIF SQL files. Supports a leading ~ for your home directory."
         },
         "tiller2qifMap.coaFormat": {
           "type": "string",
@@ -58,7 +76,7 @@
             "Use a repeating rainbow of subtle background colors",
             "Do not add row backgrounds"
           ],
-          "description": "Background styling for mapping rules and preview transactions. A preview transaction's two lines receive the same color."
+          "description": "Background styling for mapping rules and preview transactions. All lines in a transaction block receive the same color."
         }
       }
     }
