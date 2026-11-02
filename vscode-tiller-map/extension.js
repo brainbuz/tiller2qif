@@ -2,6 +2,7 @@ const vscode = require('vscode');
 const os = require('os');
 const path = require('path');
 const { getLoader, detectLoader } = require('./loaders');
+const { findSqlAccountValue, sqlAccountText, previewRows } = require('./editor-support');
 
 const DESTINATION_KEYWORDS = ['source', 'blank', 'skip'];
 const ROW_LANGUAGES = new Set(['tiller2qif-map', 'tiller2qif-preview']);
@@ -135,19 +136,6 @@ function findDestinationRange(document, position) {
   return new vscode.Range(position.line, startCol, position.line, position.character);
 }
 
-function previewRows(document) {
-  const rows = [];
-  for (let line = 0; line < document.lineCount; line++) {
-    if (!/^\s*\d{4}-\d{2}-\d{2}\s*\|/.test(document.lineAt(line).text)) continue;
-
-    const row = [line];
-    if (line + 1 < document.lineCount && /\|/.test(document.lineAt(line + 1).text)) row.push(line + 1);
-    rows.push(row);
-    line += row.length - 1;
-  }
-  return rows;
-}
-
 function mapRows(document) {
   const rows = [];
   for (let line = 0; line < document.lineCount; line++) {
@@ -158,7 +146,9 @@ function mapRows(document) {
 }
 
 function documentRows(document) {
-  if (document.languageId === 'tiller2qif-preview') return previewRows(document);
+  if (document.languageId === 'tiller2qif-preview') {
+    return previewRows(Array.from({ length: document.lineCount }, (_, line) => document.lineAt(line).text));
+  }
   if (document.languageId === 'tiller2qif-map') return mapRows(document);
   return [];
 }
@@ -237,6 +227,33 @@ function activate(context) {
   );
 
   context.subscriptions.push(provider);
+
+  context.subscriptions.push(vscode.languages.registerCompletionItemProvider(
+    'tiller2qif-sql',
+    {
+      provideCompletionItems(document, position) {
+        const value = findSqlAccountValue(document.getText(), document.offsetAt(position));
+        if (!value) return undefined;
+        const config = vscode.workspace.getConfiguration('tiller2qifMap');
+        const coaPath = config.get('coaPath', '');
+        if (!coaPath) return undefined;
+        const start = document.positionAt(value.start);
+        const end = document.positionAt(value.end);
+        if (start.line !== position.line || end.line !== position.line) return undefined;
+        const range = new vscode.Range(start, end);
+        return loadAccounts(coaPath, config.get('coaFormat', 'auto')).map((acct) => {
+          const item = new vscode.CompletionItem(acct.name, vscode.CompletionItemKind.EnumMember);
+          item.range = range;
+          item.insertText = sqlAccountText(acct.name);
+          item.filterText = item.insertText;
+          if (acct.detail) item.detail = acct.detail;
+          if (acct.documentation) item.documentation = new vscode.MarkdownString(acct.documentation);
+          return item;
+        });
+      },
+    },
+    "'", ':'
+  ));
 }
 
 function deactivate() {}

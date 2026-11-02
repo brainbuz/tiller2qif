@@ -211,9 +211,40 @@ subtest preview => sub {
 
   is( $count, 3, 'Preview returns correct transaction count' );
   ok( length($output) > 0, 'Preview produces output' );
-  unlike( $output, qr/A Very Long Payee Name Over Twenty/, 'Long payee truncated in output' );
+  like( $output, qr/A Very Long Payee Name Over Twenty/, 'Long payee is not truncated' );
+  like( $output, qr/^ID: P1 \| Date: 2026-05-01 \| Account: Liabilities:CreditCard\n {4}Amount: +-42\.00\n {4}Payee: +Corner Market\n {4}Memo: +CORNER MARKET MEMO\n {4}Category: +\[Groceries\] Expenses:Groceries\n\n/m,
+    'preview uses labeled, indented transaction blocks with amount and original category' );
   like( $output, qr/Unmapped/, 'Preview shows unmapped category when mapped_category is NULL' );
 
+  $db->disconnect;
+};
+
+subtest preview_full_fields => sub {
+  my $dbfile = uniqfile('wq_preview_full', 'sqlite3');
+  my $db = freshdb($dbfile);
+  my $account = 'Assets:Bank:A very long account name beyond thirty characters';
+  my $payee = 'A full payee name beyond the old twenty character limit';
+  my $memo = "A long first memo line beyond thirty characters\nID: this is memo content, not a transaction";
+  my $category = 'Expenses:An unusually long category name beyond thirty characters';
+  $db->query(q{INSERT INTO transactions (id, account, date, amount, payee, memo, category)
+    VALUES (?, ?, ?, ?, ?, ?, ?)}, 'long-id-123456789', $account, '2026-09-27', -12.34,
+    $payee, $memo, $category);
+  my ($count, $text) = Finance::Tiller2QIF::WriteQIF::_preview_text($dbfile);
+  is($count, 1, 'one transaction');
+  like($text, qr/^ID: long-id-123456789 \| Date: 2026-09-27 \| Account: \Q$account\E$/m,
+    'full ID, date and account on the first line');
+  like($text, qr/^ {4}Payee: +\Q$payee\E$/m, 'full payee');
+  like($text, qr/^ {4}Memo: +A long first memo line beyond thirty characters\n {14}ID: this is memo content, not a transaction$/m,
+    'multiline memo stays indented within its transaction');
+  like($text, qr/^ {4}Category: +\Q$category\E$/m, 'full category');
+  $db->query('UPDATE transactions SET account = ?, payee = NULL, memo = NULL, category = NULL', "Bank\nSecond line");
+  ($count, $text) = Finance::Tiller2QIF::WriteQIF::_preview_text($dbfile);
+  like($text, qr/Account: Bank\\nSecond line\n/, 'header newline is escaped');
+  like($text, qr/^ {4}Memo: +$/m, 'null memo renders an empty labeled line');
+  $db->query('UPDATE transactions SET exported = 1');
+  ($count, $text) = Finance::Tiller2QIF::WriteQIF::_preview_text($dbfile);
+  is($count, 0, 'exported transaction excluded');
+  like($text, qr/No transactions pending export/, 'empty preview explained');
   $db->disconnect;
 };
 
@@ -256,8 +287,8 @@ STUB
   my $tempfile = shift @seen;
   like( $tempfile, qr/tiller2qif-preview-\w+\.t2qpv$/,
     'preview file is named with the t2qpv suffix' );
-  like( join( "\n", @seen ), qr/Date\s+\|\s+Amount\s+\|\s+Account\s+\|\s+Payee/,
-    'viewer received the preview table' );
+  like( join( "\n", @seen ), qr/^ID: .* \| Date: .* \| Account: /m,
+    'viewer received the preview blocks' );
   like( join( "\n", @seen ), qr/Corner Market/, 'viewer received the transactions' );
 
   ok( -e $tempfile, 'preview file is left in place for the viewer' );

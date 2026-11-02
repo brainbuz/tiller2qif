@@ -168,14 +168,16 @@ sub Map ( $options ) {
   my ( $rules, $default, $default_skip ) = _parse_mapping_file($mapfile);
 
   my $dbh = connect_db($db_path);
+  $options->{prepare_db}->($dbh) if $options->{prepare_db};
+  my $run_sql = $options->{sql_runner} // \&_run_sql_file;
 
   if ( defined $beforemap ) {
     say "Running beforemap: $beforemap" if $verbose;
     try {
-      _run_sql_file( $dbh, $beforemap, $verbose );
+      $run_sql->( $dbh, $beforemap, $verbose );
       say "beforemap completed successfully" if $verbose;
     }
-    catch ($e) { warn "beforemap error: $e" }
+    catch ($e) { die "beforemap error: $e" if $options->{strict}; warn "beforemap error: $e" }
   }
 
   my $select = $dbh->prepare('SELECT * FROM transactions WHERE exported = 0');
@@ -215,10 +217,10 @@ sub Map ( $options ) {
   if ( defined $aftermap ) {
     say "Running aftermap: $aftermap" if $verbose;
     try {
-      _run_sql_file( $dbh, $aftermap, $verbose );
+      $run_sql->( $dbh, $aftermap, $verbose );
       say "aftermap completed successfully" if $verbose;
     }
-    catch ($e) { warn "aftermap error: $e" }
+    catch ($e) { die "aftermap error: $e" if $options->{strict}; warn "aftermap error: $e" }
   }
 
   $dbh->disconnect;

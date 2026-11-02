@@ -1,0 +1,6 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Tiller2QIF SQL",
+  "scopeName": "source.tiller-sql",
+  "patterns": [{ "include": "source.sql" }]
+}

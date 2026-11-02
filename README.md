@@ -76,6 +76,67 @@ The command word may be given either before or after the options; any other stra
 
         run will always create a checkpoint even when the flag is not set.
 
+- **interactive** -- edit and review a complete import before committing it
+
+        tiller2qif interactive --input export.csv --db tiller.sqlite3 \
+            --output import.qif --mapfile mapping.txt --viewer 'code --wait'
+
+    Creates an isolated session with a checkpoint of the original database, a fixed
+    copy of the input CSV, and a writable `corrections.t2qsql` SQL file. The viewer opens
+    the read-only preview, mapping file (when supplied), and corrections together;
+    `--multipreview` and `--confirm` are not needed. With `--viewer console`, the
+    preview is printed and the SQL path is reported for editing separately.
+
+    Choose `A` to apply saved edits and refresh, `V` to reopen the files, `E` to
+    export, or `C` to cancel. End of input also cancels. Each refresh rebuilds from
+    the initial checkpoint and captured CSV, then runs `beforemap`, the current
+    mapping rules, `aftermap`, and session corrections, in that order. Hooks also
+    run when no mapping file is supplied. Changes do not accumulate across refreshes;
+    removing a correction removes its effect. Mapping edits can restore transactions
+    skipped earlier in this session, but not historical skips in the checkpoint.
+
+    The preview includes full transaction IDs for targeted SQL, for example:
+
+        UPDATE transactions SET mapped_category = 'Expenses:Food'
+          WHERE id = 'transaction-id-from-preview';
+
+    Session SQL runs last, so it can override mapped categories, payees, memos,
+    amounts, accounts, and skip flags. Use `mapped_category` to override the exported
+    category. Restoring a skipped transaction via SQL requires setting both
+    `skipped = 0` and `exported = 0`. SQL scripts may contain multiple statements;
+    `ATTACH`, `DETACH`, `PRAGMA`, and explicit transaction statements are not
+    supported in interactive hooks or corrections. The session controls isolation.
+
+    Save editor changes before choosing Apply. An export is refused after a failed
+    refresh or when saved mapping, hook, or correction files differ from the last
+    successful review. Invalid CSV rows, mapping errors, and SQL failures cannot
+    silently produce a partial import. Fix the files and refresh, or cancel; changes
+    to the captured CSV require starting a new session.
+
+    The original database is locked against competing access for the session.
+    Only Export publishes the reviewed database (including export flags) and QIF.
+    Cancel or an error before publication leaves the original database and any
+    existing output QIF unchanged. Publication failures roll back both files.
+    Because two filesystem renames cannot be atomic together, a process crash during
+    publication can temporarily leave mixed outputs: a journal beside the database
+    restores the originals on the next `interactive` invocation, or preserves both
+    outputs if the commit marker was already written. Restart `interactive` before
+    using either output after an interrupted publication. Recovery refuses to
+    overwrite files modified externally since the interruption.
+
+    Session artifacts are retained in the printed `.tiller2qif-session-*` directory
+    beside the database, including checkpoint, CSV, SQL, previews, and working
+    databases. Mapping-file edits survive cancellation. Corrections are specific to
+    this session and are never automatically reused in a future run. These artifacts
+    contain financial data; remove them manually when no longer needed, and never
+    remove artifacts referenced by a pending `.interactive.json` journal.
+
+    Requires an existing database (create it with `newdb`), writable database and
+    output directories, and a rollback-journal SQLite database; WAL mode is not
+    supported. Do not modify the original database or output from another process
+    during the session. Existing `run`, `emit --confirm`, and standalone `preview`
+    behavior is unchanged.
+
 - **ingest** -- load CSV into the database
 
         tiller2qif ingest --input export.csv --db tiller.sqlite3
@@ -88,6 +149,20 @@ The command word may be given either before or after the options; any other stra
 - **preview** -- preview the records that would be emitted
 
         tiller2qif preview --db tiller.sqlite3
+
+    Each transaction is shown as an untruncated block, with its ID, date, and account
+    on the first line and indented, labeled detail lines:
+
+        ID: transaction-id | Date: 2026-09-27 | Account: Assets:Checking
+            Amount:   -42.00
+            Payee:    Corner Market
+            Memo:     Full transaction memo
+            Category: [Groceries] Expenses:Groceries
+
+    Long values are retained in full. Embedded newlines in detail fields use indented
+    continuation lines; newlines and tabs in the first-line fields are displayed as
+    escaped text so the transaction header stays on one line. Original categories
+    appear in brackets when mapping changes them.
 
         # read the preview in an editor or pager instead of the terminal
         tiller2qif preview --db tiller.sqlite3 --viewer less
@@ -294,15 +369,36 @@ Reload VS Code afterwards.
 
 ## Syntax Highlighting
 
-Files with `.map` and `.mapping` extensions are recognized as mappings, preview files have the `t2qpv` extension.
+Files with `.map` and `.mapping` extensions are recognized as mappings, preview
+files have the `.t2qpv` extension. Session correction files use `.t2qsql` and the
+dedicated **Tiller2QIF SQL** language mode, with SQL highlighting. Ordinary `.sql`
+file associations are unchanged. Preview files enable word wrapping by default.
 
 ## Completion Hinting
 
 In addition to completion of Tiller2QIF keywords you can also configure your Chart of Accounts for Completion! The extension's settings `tiller2qifMap.coaPath` and `tiller2qifMap.coaFormat` control this. Currently the only available coaFormat is `gnucash-csv`.
 
+In **Tiller2QIF SQL** files, the same chart of accounts supplies completions inside
+single-quoted values assigned to or compared with `account`, `category`, and
+`mapped_category`. For example, type inside the quotes in
+`UPDATE transactions SET mapped_category = '' WHERE id = '...';`.
+Suggestions appear while typing, after an opening quote or colon, or with
+`Ctrl+Space`. Account names containing apostrophes are escaped for SQL. Map-only
+keywords such as `skip` and `source` are not offered as SQL values, and hints do
+not appear in comments, payees, memos, or transaction IDs.
+
+For an older session's `corrections.sql`, manually select **Tiller2QIF SQL** using
+VS Code's language-mode selector; no rename is necessary. Other Tiller SQL files
+can opt in using the same language mode or the `.t2qsql` extension. Refresh the
+installed extension copy (if not symlinked to this checkout) and reload VS Code
+after updating it.
+
 ## Row Colors
 
-`tiller2qifMap.rowColors` controls row backgrounds in both file types. `rainbow`, the default, gives rows a repeating series of subtle background colors; `none` turns backgrounds off. A preview transaction occupies two lines, both receive the same color.
+`tiller2qifMap.rowColors` controls row backgrounds in mappings and previews.
+`rainbow`, the default, gives transactions a repeating series of subtle background
+colors; `none` turns backgrounds off. Every line in a preview transaction block,
+including multiline field continuations, receives the same color.
 
 # Advanced Use
 
@@ -313,7 +409,7 @@ and after the map phase without having to break the workflow into separate comma
 This is the preferred way to preprocess or post-process transactions when using `run`,
 or `map` as a single step.
 
-The `preview` command is meant to be run between map and emit. You may run the steps individually (ingest, map, preview, emit), or use the `--confirm` option to run preview before emit (including run). The preview table is wide, so `--viewer` is often more comfortable than the terminal; combined with `--confirm` it lets you read the pending transactions in an editor or pager and then answer the export prompt.
+The `preview` command is meant to be run between map and emit. You may run the steps individually (ingest, map, preview, emit), or use the `--confirm` option to run preview before emit (including run). `--viewer` lets you read the full transaction blocks in an editor or pager; combined with `--confirm` it lets you review the pending transactions and then answer the export prompt.
 
 When using `--confirm` with `--checkpoint`, three choices Y=Yes N=No R=Revert are offered. No keeps the database state while not completing the export, Revert restores the database to the checkpoint in addition to aborting.
 

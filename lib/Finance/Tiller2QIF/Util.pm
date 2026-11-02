@@ -129,8 +129,7 @@ sub CheckConfig (%options) {
 
   say "Options Provided:";
   for ( sort keys %options ) {
-
-    say sprintf "  %-14s : %s", $_, $options{$_};
+    say sprintf "  %-14s : %s", $_, $options{$_} // '(unset)';
   }
 
   say '';

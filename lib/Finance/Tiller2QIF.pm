@@ -105,7 +105,7 @@ sub _confirm ( %options ) {
 # ---------------------------------------------------------------------------
 
 my $VALID_COMMANDS = join '|',
-  qw(run ingest map emit preview newdb newconfig checkconfig clean version);
+  qw(run interactive ingest map emit preview newdb newconfig checkconfig clean version);
 
 my $hlpmsg = <<'END_USAGE';
 tiller2qif — Convert Tiller Money CSV exports to QIF format.
@@ -116,7 +116,7 @@ GnuCash, KMyMoney, Quicken, HomeBank, and similar programs.
 
 Usage: tiller2qif <command> %o
 
-Commands: run | ingest | map | emit | preview | newdb | newconfig | checkconfig | version
+Commands: run | interactive | ingest | map | emit | preview | newdb | newconfig | checkconfig | version
 
 For the full manual: perldoc Finance::Tiller2QIF
 END_USAGE
@@ -143,10 +143,10 @@ sub run_cli {
       $hlpmsg,
       [ 'config|c=s',   "JSON config file" ],
       [ 'checkpoint|C', "copy database with timestamp before run." ],
-      [ 'input|i=s',    "CSV file to read      (ingest, run)" ],
-      [ 'output|o=s',   "QIF file to write     (emit, run)" ],
+      [ 'input|i=s',    "CSV file to read      (ingest, run, interactive)" ],
+      [ 'output|o=s',   "QIF file to write     (emit, run, interactive)" ],
       [ 'db|d=s', "SQLite database file  (all commands except newconfig)" ],
-      [ 'mapfile|f=s', "Category mapping file (map, run — optional)" ],
+      [ 'mapfile|f=s', "Category mapping file (map, run, interactive — optional)" ],
       [ 'beforemap=s', "sql script to run prior to map" ],
       [ 'aftermap=s',  "sql script to run after map" ],
       [ 'qifdate=s',   "QIF date format: ymd (default), mdy, or dmy" ],
@@ -242,11 +242,11 @@ sub run_cli {
   # Only validate the viewer when this command will actually use it —
   # otherwise a blank/odd viewer in a shared config file would block
   # unrelated commands like newdb or ingest that never touch it.
-  if ( $cmd eq 'preview' || ( $cmd =~ /^(?:emit|run)$/ && $options{confirm} ) ) {
+  if ( $cmd eq 'preview' || $cmd eq 'interactive' || ( $cmd =~ /^(?:emit|run)$/ && $options{confirm} ) ) {
     die "--viewer must name a program or 'console'\n"
       unless defined $options{viewer} && $options{viewer} =~ /\S/;
 
-    if ( $options{multipreview} ) {
+    if ( $options{multipreview} && $cmd ne 'interactive' ) {
       die "--multipreview requires --viewer, the console can't open files\n"
         if lc $options{viewer} eq 'console';
       die "--multipreview requires --mapfile\n" unless $options{mapfile};
@@ -274,13 +274,18 @@ sub run_cli {
   }
 
   my @missing;
-  push @missing, '--input'  if $cmd =~ /^(?:ingest|run)$/ && !$options{input};
+  push @missing, '--input'  if $cmd =~ /^(?:ingest|run|interactive)$/ && !$options{input};
   push @missing, '--db'     if !$options{db_path};
-  push @missing, '--output' if $cmd =~ /^(?:emit|run)$/ && !$options{output};
+  push @missing, '--output' if $cmd =~ /^(?:emit|run|interactive)$/ && !$options{output};
 
   if (@missing) {
     die "tiller2qif $cmd: missing required option(s): "
       . join( ', ', @missing ) . "\n";
+  }
+
+  if ( $cmd eq 'interactive' ) {
+    require Finance::Tiller2QIF::Interactive;
+    return Finance::Tiller2QIF::Interactive::Run(\%options);
   }
 
   if ( $options{verbose} || $cmd eq 'checkconfig' ) {
