@@ -15,7 +15,7 @@ Parse a Tiller CSV export and insert rows into the SQLite database. Handles mult
 
 =head1 AUTHOR
 
-John Karr E<lt>brainbuz@cpan.orgE<gt>
+John Karr E<lt>cpan@brainbuz.orgE<gt>
 
 =head1 LICENSE
 

@@ -29,7 +29,7 @@ Any further arguments are additional files to open alongside the preview, in the
 
 =head1 AUTHOR
 
-John Karr E<lt>brainbuz@cpan.orgE<gt>
+John Karr E<lt>cpan@brainbuz.orgE<gt>
 
 =head1 LICENSE
 

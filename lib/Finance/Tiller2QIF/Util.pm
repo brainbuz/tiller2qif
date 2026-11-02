@@ -36,7 +36,7 @@ Exported on request; used internally by other Finance::Tiller2QIF modules.
 
 =head1 AUTHOR
 
-John Karr E<lt>brainbuz@cpan.orgE<gt>
+John Karr E<lt>cpan@brainbuz.orgE<gt>
 
 =head1 LICENSE
 

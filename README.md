@@ -428,7 +428,7 @@ should use `db_path` directly.
 
 # AUTHOR
 
-John Karr <brainbuz@cpan.org>
+John Karr <cpan@brainbuz.org>
 
 # LICENSE
 

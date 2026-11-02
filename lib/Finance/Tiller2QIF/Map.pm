@@ -23,7 +23,7 @@ A good convention is to put specific payee and memo overrides near the top, and 
 
 =head1 AUTHOR
 
-John Karr E<lt>brainbuz@cpan.orgE<gt>
+John Karr E<lt>cpan@brainbuz.orgE<gt>
 
 =head1 LICENSE
 
