@@ -27,6 +27,8 @@ C<$viewer> selects where the table goes. The default, C<console>, prints to STDO
 
 Any further arguments are additional files to open alongside the preview, in the same viewer invocation; the CLI passes the mapping file here for C<--multipreview>. They require a real viewer (not C<console>) and must be readable, or the call dies.
 
+On Windows, the command runs through C<cmd.exe> with Windows quoting for the file arguments. Use double quotes around program paths containing spaces. Delayed environment-variable expansion is disabled so file names containing C<!> remain literal.
+
 =head1 AUTHOR
 
 John Karr E<lt>cpan@brainbuz.orgE<gt>
@@ -180,6 +182,16 @@ sub _shell_quote ($str) {
   return "'$str'";
 }
 
+sub _launch_windows_viewer ($viewer, @files) {
+  require Win32::ShellQuote;
+  my $cmd = join ' ', $viewer, Win32::ShellQuote::quote_cmd(@files);
+  my $shell = $ENV{COMSPEC} // 'cmd.exe';
+  # Force cmd.exe so quoting does not depend on Perl's shell autodetection.
+  # Disable AutoRun and delayed expansion so file names containing ! survive.
+  die "preview viewer '$viewer' failed\n"
+    if system { $shell } $shell, '/d', '/v:off', '/s', '/c', qq{"$cmd"};
+}
+
 sub _launch_viewer ( $viewer, $text, @also ) {
   for my $extra (@also) {
     die "preview cannot open '$extra': it does not exist or can't be read\n"
@@ -199,8 +211,13 @@ sub _launch_viewer ( $viewer, $text, @also ) {
 
   say "Preview written to $file";
   say "Also opening: $_" for @also;
-  my $cmd = join ' ', $viewer, map { _shell_quote($_) } $file, @also;
-  die "preview viewer '$viewer' failed\n" if system($cmd);
+  if ($^O eq 'MSWin32') {
+    _launch_windows_viewer($viewer, $file, @also);
+  }
+  else {
+    my $cmd = join ' ', $viewer, map { _shell_quote($_) } $file, @also;
+    die "preview viewer '$viewer' failed\n" if system($cmd);
+  }
   return $file;
 }
 

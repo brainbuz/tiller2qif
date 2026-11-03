@@ -238,9 +238,14 @@ sub _view ($session) {
     my @files = ($review ? ($review->{preview}) : (),
       $session->{options}{mapfile} ? ($session->{options}{mapfile}) : (),
       $session->{options}{corrections});
-    my $cmd = join ' ', $viewer,
-      map { Finance::Tiller2QIF::WriteQIF::_shell_quote($_) } @files;
-    die "preview viewer '$viewer' failed\n" if system($cmd);
+    if ($^O eq 'MSWin32') {
+      Finance::Tiller2QIF::WriteQIF::_launch_windows_viewer($viewer, @files);
+    }
+    else {
+      my $cmd = join ' ', $viewer,
+        map { Finance::Tiller2QIF::WriteQIF::_shell_quote($_) } @files;
+      die "preview viewer '$viewer' failed\n" if system($cmd);
+    }
   }
   say "$review->{count} transaction(s) in last successful preview." if $review;
 }
