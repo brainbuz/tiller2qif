@@ -13,6 +13,9 @@ use Finance::Tiller2QIF::DB qw(connect_db);
 
 sub fixture () {
   my $dir = tempdir(CLEANUP => 1);
+  # Match Run's canonical Windows paths so failure-injection targets compare
+  # equal despite File::Temp returning backslash-separated directory names.
+  $dir = path($dir)->realpath->stringify if $^O eq 'MSWin32';
   my $f = { dir => $dir, db => "$dir/live.sqlite3", input => "$dir/input.csv",
     output => "$dir/result.qif", mapfile => "$dir/rules.map" };
   Finance::Tiller2QIF::Util::InitDB($f->{db});
@@ -213,7 +216,6 @@ capture_subtest 'database and output cannot alias inputs' => sub {
 subtest 'external editor receives preview, map and editable session SQL' => sub {
   my $f = fixture();
   my $map = "$f->{dir}/rules ' with spaces.map";
-  $map = path($map)->stringify if $^O eq 'MSWin32';
   path($f->{mapfile})->move($map);
   $f->{mapfile} = $map;
   my $editor = "$f->{dir}/editor ' with spaces.pl";
