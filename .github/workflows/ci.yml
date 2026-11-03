@@ -32,3 +32,32 @@ jobs:
 
       - name: Run tests
         run: prove -l t
+
+  windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Match the versions in the failing CPAN Testers reports and the
+        # minimum supported Perl version.
+        perl: ['5.36', '5.42']
+
+    name: Windows Perl ${{ matrix.perl }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Strawberry Perl ${{ matrix.perl }}
+        uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: ${{ matrix.perl }}
+          distribution: strawberry
+
+      - name: Install App::cpm
+        run: cpanm --notest --quiet App::cpm
+
+      - name: Install dependencies
+        run: cpm install -g --show-build-log-on-failure --with-test
+
+      - name: Run tests
+        run: prove -l t
