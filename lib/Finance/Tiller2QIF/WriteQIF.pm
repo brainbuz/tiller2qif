@@ -188,8 +188,10 @@ sub _launch_windows_viewer ($viewer, @files) {
   my $shell = $ENV{COMSPEC} // 'cmd.exe';
   # Force cmd.exe so quoting does not depend on Perl's shell autodetection.
   # Disable AutoRun and delayed expansion so file names containing ! survive.
+  # Perl adds the outer quotes for /c; adding another pair breaks viewers
+  # whose executable path is already quoted.
   die "preview viewer '$viewer' failed\n"
-    if system { $shell } $shell, '/d', '/v:off', '/s', '/c', qq{"$cmd"};
+    if system { $shell } $shell, '/d', '/v:off', '/s', '/c', $cmd;
 }
 
 sub _launch_viewer ( $viewer, $text, @also ) {
