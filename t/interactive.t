@@ -213,6 +213,7 @@ capture_subtest 'database and output cannot alias inputs' => sub {
 subtest 'external editor receives preview, map and editable session SQL' => sub {
   my $f = fixture();
   my $map = "$f->{dir}/rules ' with spaces.map";
+  $map = path($map)->stringify if $^O eq 'MSWin32';
   path($f->{mapfile})->move($map);
   $f->{mapfile} = $map;
   my $editor = "$f->{dir}/editor ' with spaces.pl";

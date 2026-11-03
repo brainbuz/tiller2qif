@@ -58,6 +58,9 @@ sub _digest ($file) {
 sub _same ($a, $b) { return ($a // '') eq ($b // '') }
 
 sub _sync ($file) {
+  # Windows uses normal OS buffering; power-loss durability is not required.
+  # This also bypasses directory fsync, which Windows does not support here.
+  return if $^O eq 'MSWin32';
   my $fh = path($file)->openr_raw;
   $fh->sync or die "Cannot sync $file: $!\n";
   close $fh or die "Cannot close $file: $!\n";
@@ -346,6 +349,9 @@ SQL
       $options{verbose}, $options{qifdate});
     chmod((stat($options{output}))[2] & 0777, $export_qif)
       or die "Cannot preserve output permissions: $!\n" if -e $options{output};
+    # Windows cannot replace a database while SQLite has it open. The session
+    # lock remains held, and _publish rechecks the original file digests.
+    $guard->disconnect if $^O eq 'MSWin32';
     _publish($session, $export_db, $export_qif);
     say "QIF written: $options{output}, $count records emitted! Session committed.";
     return 1;
