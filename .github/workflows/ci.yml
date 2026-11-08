@@ -33,6 +33,34 @@ jobs:
       - name: Run tests
         run: prove -l t
 
+  linux-root-dev:
+    # Latest monthly development release of Perl, with the tests run as root.
+    # There is no blead job, so failures here are a warning, not a CI failure.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    name: Linux Perl devel (as root, allowed to fail)
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Perl development release
+        uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: devel
+
+      - name: Perl version
+        run: perl -V:version
+
+      - name: Install App::cpm
+        run: cpanm --notest --quiet App::cpm
+
+      - name: Install dependencies
+        run: cpm install -g --show-build-log-on-failure --with-test
+
+      - name: Run tests as root
+        run: sudo --preserve-env=PATH,PERL5LIB sh -c 'id && prove -l t'
+
   macos:
     runs-on: macos-latest
     strategy:
