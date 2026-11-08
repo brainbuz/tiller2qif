@@ -88,14 +88,20 @@ subtest 'CheckConfig output file already exists' => sub {
     like( $out, qr/Alert/, 'alert when output already exists' );
 };
 
+# The BSD CI VM runs the tests as root, which ignores 0555/0444 permissions, so
+# the "not writable" checks cannot be exercised there. Skip only on BSD, and
+# only when the chmod was not enforced; every other OS runs these tests as-is.
+sub skip_if_bsd_permissions_unenforced ($path, $restore_mode) {
+    return unless $^O =~ /bsd|dragonfly/i && -w $path;
+    chmod $restore_mode, $path;
+    skip_all "BSD: filesystem permissions not enforced (running as root?)";
+}
+
 subtest 'CheckConfig output parent dir not writable' => sub {
     my $locked_dir = "$tmpdir/locked";
     mkdir $locked_dir unless -d $locked_dir;
     chmod 0555, $locked_dir;
-    if ( -w $locked_dir ) {
-        chmod 0755, $locked_dir;
-        skip_all 'filesystem permissions not enforced (running as root?)';
-    }
+    skip_if_bsd_permissions_unenforced( $locked_dir, 0755 );
     my $out = capture_stdout {
         Finance::Tiller2QIF::Util::CheckConfig( output => "$locked_dir/out.qif" );
     };
@@ -107,10 +113,7 @@ subtest 'CheckConfig output file exists but not writable' => sub {
     my $readonly_file = "$tmpdir/readonly.qif";
     path($readonly_file)->spew_utf8("data");
     chmod 0444, $readonly_file;
-    if ( -w $readonly_file ) {
-        chmod 0644, $readonly_file;
-        skip_all 'filesystem permissions not enforced (running as root?)';
-    }
+    skip_if_bsd_permissions_unenforced( $readonly_file, 0644 );
     my $out = capture_stdout {
         Finance::Tiller2QIF::Util::CheckConfig( output => $readonly_file );
     };
