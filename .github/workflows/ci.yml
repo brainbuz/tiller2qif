@@ -33,6 +33,49 @@ jobs:
       - name: Run tests
         run: prove -l t
 
+  macos:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        perl: ['5.36', '5.42']
+
+    name: macOS Perl ${{ matrix.perl }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Perl ${{ matrix.perl }}
+        uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: ${{ matrix.perl }}
+
+      - name: Install App::cpm
+        run: cpanm --notest --quiet App::cpm
+
+      - name: Install dependencies
+        run: cpm install -g --show-build-log-on-failure --with-test
+
+      - name: Run tests
+        run: prove -l t
+
+  freebsd:
+    runs-on: ubuntu-latest
+    name: FreeBSD system Perl
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Test on FreeBSD
+        uses: vmactions/freebsd-vm@v1
+        with:
+          usesh: true
+          prepare: |
+            pkg install -y perl5 p5-App-cpanminus p5-App-cpm gmake
+          run: |
+            cpm install -g --show-build-log-on-failure --with-test
+            prove -l t
+
   windows:
     runs-on: windows-latest
     strategy:

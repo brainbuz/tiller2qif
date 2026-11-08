@@ -1,4 +1,10 @@
 Revision history for Finance-Tiller2QIF
+1.22      unreleased
+ - Resolve CPAN Testers failures.
+  - Limit supported platforms to Strawberry Perl on Windows, macOS, Linux and
+    BSD; Makefile.PL dies on other OSes (Cygwin, Haiku, Solaris, AIX) only under
+    AUTOMATED_TESTING so CPAN Testers reports NA; users may still install.
+  - Add macOS and FreeBSD to CI.
 1.21      2026-11-03
   -  Fix tests failing on Windows, issue #7
 1.20      2026-11-02
