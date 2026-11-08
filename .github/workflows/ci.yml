@@ -73,8 +73,7 @@ jobs:
           prepare: |
             pkg install -y perl5 p5-App-cpanminus gmake
           run: |
-            cpanm --notest --quiet App::cpm
-            cpm install -g --show-build-log-on-failure --with-test
+            cpanm --notest --quiet --installdeps .
             prove -l t
 
   windows:

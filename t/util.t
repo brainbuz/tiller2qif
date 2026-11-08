@@ -92,6 +92,10 @@ subtest 'CheckConfig output parent dir not writable' => sub {
     my $locked_dir = "$tmpdir/locked";
     mkdir $locked_dir unless -d $locked_dir;
     chmod 0555, $locked_dir;
+    if ( -w $locked_dir ) {
+        chmod 0755, $locked_dir;
+        skip_all 'filesystem permissions not enforced (running as root?)';
+    }
     my $out = capture_stdout {
         Finance::Tiller2QIF::Util::CheckConfig( output => "$locked_dir/out.qif" );
     };
@@ -103,6 +107,10 @@ subtest 'CheckConfig output file exists but not writable' => sub {
     my $readonly_file = "$tmpdir/readonly.qif";
     path($readonly_file)->spew_utf8("data");
     chmod 0444, $readonly_file;
+    if ( -w $readonly_file ) {
+        chmod 0644, $readonly_file;
+        skip_all 'filesystem permissions not enforced (running as root?)';
+    }
     my $out = capture_stdout {
         Finance::Tiller2QIF::Util::CheckConfig( output => $readonly_file );
     };
