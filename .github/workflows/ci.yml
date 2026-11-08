@@ -33,6 +33,76 @@ jobs:
       - name: Run tests
         run: prove -l t
 
+  linux-root-dev:
+    # Latest monthly development release of Perl (official Docker image; the
+    # setup-perl action only ships stable releases). The container runs as
+    # root, so this also covers root-run tests. There is no blead job, so a
+    # failure here is a warning, not a CI failure.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    container: perl:devel-threaded
+
+    name: Linux Perl devel (as root, allowed to fail)
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Perl version and user
+        run: perl -V:version && id
+
+      - name: Install dependencies
+        run: cpanm --notest --quiet --installdeps .
+
+      - name: Run tests as root
+        run: prove -l t
+
+  macos:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        perl: ['5.36', '5.42']
+
+    name: macOS Perl ${{ matrix.perl }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Perl ${{ matrix.perl }}
+        uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: ${{ matrix.perl }}
+
+      - name: Install App::cpm
+        run: cpanm --notest --quiet App::cpm
+
+      - name: Install dependencies
+        run: cpm install -g --show-build-log-on-failure --with-test
+
+      - name: Run tests
+        run: prove -l t
+
+  freebsd:
+    runs-on: ubuntu-latest
+    name: FreeBSD system Perl
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Test on FreeBSD
+        uses: vmactions/freebsd-vm@v1
+        with:
+          usesh: true
+          prepare: |
+            pkg install -y perl5 p5-App-cpanminus gmake
+            pw useradd -n tester -m -s /bin/sh
+          run: |
+            cpanm --notest --quiet --installdeps .
+            # Run the tests as an unprivileged user like CPAN Testers does;
+            # root ignores file permissions and breaks the "not writable" tests.
+            chown -R tester "$GITHUB_WORKSPACE"
+            su tester -c "cd '$GITHUB_WORKSPACE' && id && prove -l t"
+
   windows:
     runs-on: windows-latest
     strategy:

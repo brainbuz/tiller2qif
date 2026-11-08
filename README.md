@@ -45,6 +45,10 @@ suppresses duplicates (card-payment credits), and assigns destination accounts.
     # or
     cpanm Finance::Tiller2QIF
 
+## Supported Platforms
+
+Support is limited to Strawberry Perl on Windows, macOS, Linux and BSD distributions (FreeBSD, NetBSD, OpenBSD, DragonflyBSD). Other platforms, including Cygwin, Haiku, Solaris and AIX, are not supported and the author does not test them, though you may still try to install.
+
 ## Perl Dependencies
 
 Runtime: Cpanel::JSON::XS, DateTime::Format::Flexible, DBD::SQLite, DBI,
