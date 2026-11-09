@@ -47,12 +47,12 @@ suppresses duplicates (card-payment credits), and assigns destination accounts.
 
 ## Supported Platforms
 
-Support is limited to Strawberry Perl on Windows, macOS, Linux and BSD distributions (FreeBSD, NetBSD, OpenBSD, DragonflyBSD). Other platforms, including Cygwin, Haiku, Solaris and AIX, are not supported and the author does not test them, though you may still try to install.
+Supported platforms are Strawberry Perl on Windows, macOS, Linux and BSD distributions (FreeBSD, NetBSD, OpenBSD, DragonflyBSD). Cygwin is not supported and installation is refused. Other platforms, such as Haiku, Solaris and AIX, are unsupported but not blocked from installation.
 
 ## Perl Dependencies
 
 Runtime: Cpanel::JSON::XS, DateTime::Format::Flexible, DBD::SQLite, DBI,
-Getopt::Long::Descriptive, Path::Tiny, Text::CSV
+Getopt::Long::Descriptive, Path::Tiny, Text::CSV; on Windows also Win32::ShellQuote
 
 Testing: Capture::Tiny, Test2::V0, Test2::Bundle::More, Test2::Tools::Exception
 
@@ -67,7 +67,7 @@ All of Tiller2QIF’s dependencies are available through package management if y
 
 ### On Windows
 
-tiller2qif works with Strawberry Perl, after installing Strawberry Perl, install from CPAN.
+tiller2qif works with Strawberry Perl, after installing Strawberry Perl, install from CPAN. tiller2qif cannot be installed to ActivePerl and Cygwin.
 
 # CLI COMMANDS
 
